@@ -220,15 +220,18 @@ class RealMediaRepository(
           animeFlow.value = animeSection.items
         }
 
-        // Seed initial continue watching if user has not yet recorded playback
-        if (continueWatchingFlow.value.isEmpty()) {
-          val seedPool = heroItems.filter { it.backdropUrl.isNotBlank() }
-          if (seedPool.isNotEmpty()) {
-            val seeded = seedPool.take(3).mapIndexed { idx, item ->
-              item.copy(progressPercent = if (idx == 0) 0.65f else 0.38f)
+        // Continue watching reflects actual user watch history loaded from local storage
+        val currentCw = continueWatchingFlow.value
+        if (currentCw.isNotEmpty()) {
+          val enrichedCw = currentCw.map { cwItem ->
+            val cached = memoryCache[cwItem.id]
+            if (cached != null) {
+              cached.copy(progressPercent = cwItem.progressPercent ?: 0.35f)
+            } else {
+              cwItem
             }
-            continueWatchingFlow.value = seeded
           }
+          continueWatchingFlow.value = enrichedCw
         }
 
         // 3. Coming Soon
@@ -397,29 +400,37 @@ class RealMediaRepository(
     contentId: String,
     type: String,
     season: Int?,
-    episode: Int?
+    episode: Int?,
+    tmdbId: Int?,
+    title: String?
   ): List<ServerItem> {
+    val cleanId = MediaEnrichmentRegistry.getCleanId(contentId, tmdbId, title)
+    val isTv = type in listOf("series", "tv")
+    val s = season ?: 1
+    val e = episode ?: 1
+
     return try {
-      val response = if (type == "tv" || type == "series") {
+      val response = if (isTv) {
         apiService.getSeriesEpisodeServers(
-          id = contentId,
-          season = season ?: 1,
-          episode = episode ?: 1
+          id = cleanId,
+          season = s,
+          episode = e
         )
       } else {
-        apiService.getMovieServers(contentId)
+        apiService.getMovieServers(cleanId)
       }
 
       val rawServers = if (response.success && response.data != null) {
         response.data.servers.map { srv ->
+          val directUrl = MediaEnrichmentRegistry.constructDirectServerUrl(srv.id, cleanId, isTv, s, e)
           ServerItem(
             id = srv.id,
             name = srv.name,
             type = srv.type ?: "embed",
             quality = srv.quality ?: "1080p",
             language = srv.language ?: "Multi-Audio",
-            url = srv.url,
-            securePlayerUrl = srv.securePlayerUrl,
+            url = srv.url?.ifBlank { directUrl } ?: directUrl,
+            securePlayerUrl = srv.securePlayerUrl?.ifBlank { directUrl } ?: directUrl,
             available = srv.available,
             priority = srv.priority
           )
@@ -428,52 +439,26 @@ class RealMediaRepository(
         emptyList()
       }
 
-      // Check if TGVID Stream (srv_tgvid) is present; if not, prepend it as Server 1
-      val hasTgvid = rawServers.any { it.id == "srv_tgvid" || it.id.contains("tgvid", ignoreCase = true) }
-      val serverList = if (!hasTgvid) {
-        // Derive token/url from srv_1 if available so srv_tgvid has active embedded player
-        val srv1 = rawServers.firstOrNull { it.id == "srv_1" }
-        val tgvidItem = ServerItem(
-          id = "srv_tgvid",
-          name = "Server 1 (TGVID Stream)",
-          type = "embed",
-          quality = "1080p FHD",
-          language = "Multi-Audio (Hindi/Eng)",
-          url = srv1?.url,
-          securePlayerUrl = srv1?.securePlayerUrl,
-          available = true,
-          priority = 0
-        )
-        // Ensure other server numbers are cleanly displayed
-        val remaining = rawServers.filter { it.id != "srv_1" }
-        listOf(tgvidItem, srv1?.copy(name = "Server 1 Alt (VidStuck Stream)", priority = 1)).filterNotNull() + remaining
-      } else {
-        rawServers
-      }
+      val defaultServers = listOf(
+        ServerItem(id = "srv_tgvid", name = "Server 1 (TGVid Stream)", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 0),
+        ServerItem(id = "srv_vidsrc", name = "Server 2 (VidSrc / Vidstack)", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_vidsrc", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
+        ServerItem(id = "srv_videasy", name = "Server 3 (Videasy HD)", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_videasy", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
+        ServerItem(id = "srv_2embed", name = "Server 4 (2Embed)", type = "embed", quality = "1080p FHD", language = "Multi-Subtitles", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_2embed", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3),
+        ServerItem(id = "srv_vidsrcicu", name = "Server 5 (VidSrc ICU)", type = "embed", quality = "1080p FHD", language = "Original Audio", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_vidsrcicu", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 4),
+        ServerItem(id = "srv_embedsu", name = "Server 6 (EmbedSu)", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_embedsu", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 5),
+        ServerItem(id = "srv_smashy", name = "Server 7 (SmashyStream)", type = "embed", quality = "1080p FHD", language = "Multi-Audio", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_smashy", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 6),
+        ServerItem(id = "srv_autoembed", name = "Server 8 (AutoEmbed)", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_autoembed", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 7)
+      )
 
-      serverList.sortedBy { it.priority }
-    } catch (e: Exception) {
-      Log.e(tag, "Error getting servers for $contentId ($type)", e)
-      // Provide fallback server list including Server 1 TGVID Stream
+      val merged = (rawServers + defaultServers).distinctBy { it.id }.sortedBy { it.priority }
+      merged
+    } catch (err: Exception) {
+      Log.e(tag, "Error getting servers for $cleanId ($type)", err)
       listOf(
-        ServerItem(
-          id = "srv_tgvid",
-          name = "Server 1 (TGVID Stream)",
-          type = "embed",
-          quality = "1080p FHD",
-          language = "Multi-Audio (Hindi/Eng)",
-          available = true,
-          priority = 0
-        ),
-        ServerItem(
-          id = "srv_2",
-          name = "Server 2 (Ultra Proxy Fast)",
-          type = "embed",
-          quality = "1080p FHD",
-          language = "Cloudflare Worker Proxy",
-          available = true,
-          priority = 1
-        )
+        ServerItem(id = "srv_tgvid", name = "Server 1 (TGVid Stream)", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 0),
+        ServerItem(id = "srv_vidsrc", name = "Server 2 (VidSrc / Vidstack)", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_vidsrc", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
+        ServerItem(id = "srv_videasy", name = "Server 3 (Videasy HD)", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_videasy", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
+        ServerItem(id = "srv_2embed", name = "Server 4 (2Embed)", type = "embed", quality = "1080p FHD", language = "Multi-Subtitles", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_2embed", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3)
       )
     }
   }
@@ -483,39 +468,116 @@ class RealMediaRepository(
     type: String,
     serverId: String,
     season: Int?,
-    episode: Int?
+    episode: Int?,
+    tmdbId: Int?,
+    title: String?
   ): PlaybackResolved? {
+    val cleanId = MediaEnrichmentRegistry.getCleanId(contentId, tmdbId, title)
+    val isTv = type in listOf("series", "tv")
+    val apiType = if (isTv) "tv" else "movie"
+    val s = season ?: 1
+    val e = episode ?: 1
+
+    val fallbackUrl = MediaEnrichmentRegistry.constructDirectServerUrl(serverId, cleanId, isTv, s, e)
+
     return try {
-      val apiType = if (type in listOf("series", "tv")) "tv" else "movie"
       val request = PlaybackResolveRequest(
-        contentId = contentId,
+        contentId = cleanId,
         type = apiType,
         serverId = serverId,
-        season = if (apiType == "tv") (season ?: 1) else null,
-        episode = if (apiType == "tv") (episode ?: 1) else null
+        season = if (isTv) s else null,
+        episode = if (isTv) e else null
       )
       val response = apiService.resolvePlayback(request)
       if (response.success && response.data != null) {
         val data = response.data
+        val rawSec = data.securePlayerUrl?.trim()
+        val rawEmb = data.embedUrl?.trim()
+        val rawStr = data.streamUrl?.trim()
+
+        val resolvedUrl = when {
+          !rawSec.isNullOrBlank() -> rawSec
+          !rawEmb.isNullOrBlank() -> rawEmb
+          !rawStr.isNullOrBlank() -> rawStr
+          else -> fallbackUrl
+        }
+
         PlaybackResolved(
-          contentId = data.contentId,
-          type = data.type ?: apiType,
-          serverId = data.serverId,
-          serverName = data.serverName,
-          streamUrl = data.streamUrl,
-          securePlayerUrl = data.securePlayerUrl,
+          contentId = cleanId,
+          type = apiType,
+          serverId = serverId,
+          serverName = sanitizeServerName(serverId, data.serverName),
+          streamUrl = resolvedUrl,
+          securePlayerUrl = resolvedUrl,
           quality = data.quality ?: "1080p",
-          language = data.language,
-          season = data.season,
-          episode = data.episode,
-          available = data.available
+          language = data.language ?: "Multi-Audio",
+          season = if (isTv) s else null,
+          episode = if (isTv) e else null,
+          available = true
         )
       } else {
-        null
+        PlaybackResolved(
+          contentId = cleanId,
+          type = apiType,
+          serverId = serverId,
+          serverName = sanitizeServerName(serverId, null),
+          streamUrl = fallbackUrl,
+          securePlayerUrl = fallbackUrl,
+          quality = "1080p FHD",
+          language = "Multi-Audio",
+          season = if (isTv) s else null,
+          episode = if (isTv) e else null,
+          available = true
+        )
       }
-    } catch (e: Exception) {
-      Log.e(tag, "Error resolving playback for $contentId", e)
-      null
+    } catch (err: Exception) {
+      Log.e(tag, "Error resolving playback for $cleanId ($serverId)", err)
+      PlaybackResolved(
+        contentId = cleanId,
+        type = apiType,
+        serverId = serverId,
+        serverName = sanitizeServerName(serverId, null),
+        streamUrl = fallbackUrl,
+        securePlayerUrl = fallbackUrl,
+        quality = "1080p FHD",
+        language = "Multi-Audio",
+        season = if (isTv) s else null,
+        episode = if (isTv) e else null,
+        available = true
+      )
+    }
+  }
+
+  private fun sanitizeServerName(serverId: String, rawName: String?): String {
+    val clean = rawName?.trim().orEmpty()
+    val sId = serverId.lowercase().trim()
+    if (sId == "srv_tgvid" || sId == "srv_1" || sId.contains("tgvid")) {
+      return "Server 1 (TGVid Stream)"
+    }
+    if (clean.contains("VidStuck", ignoreCase = true) || clean.contains("VidStack", ignoreCase = true)) {
+      if (sId == "srv_tgvid" || sId == "srv_1" || sId.contains("tgvid")) {
+        return "Server 1 (TGVid Stream)"
+      }
+      return "Server 2 (VidSrc Stream)"
+    }
+    if (clean.isNotBlank()) {
+      return clean
+    }
+    return getServerNameById(serverId)
+  }
+
+  private fun getServerNameById(serverId: String): String {
+    val sId = serverId.lowercase().trim()
+    return when {
+      sId.contains("tgvid") || sId == "srv_tgvid" || sId == "srv_1" -> "Server 1 (TGVid Stream)"
+      sId.contains("vidsrc") || sId.contains("vidstack") || sId.contains("vidstuck") || sId == "srv_vidsrc" -> "Server 2 (VidSrc Stream)"
+      sId.contains("videasy") || sId == "srv_videasy" || sId == "srv_2" -> "Server 3 (Videasy HD)"
+      sId.contains("2embed") || sId == "srv_2embed" || sId == "srv_3" -> "Server 4 (2Embed)"
+      sId.contains("vidsrcicu") || sId == "srv_vidsrcicu" || sId == "srv_4" -> "Server 5 (VidSrc ICU)"
+      sId.contains("embedsu") || sId == "srv_embedsu" || sId == "srv_5" -> "Server 6 (EmbedSu)"
+      sId.contains("smashy") || sId == "srv_smashy" || sId == "srv_6" -> "Server 7 (SmashyStream)"
+      sId.contains("autoembed") || sId == "srv_autoembed" || sId == "srv_7" -> "Server 8 (AutoEmbed)"
+      else -> "Server 1 (TGVid Stream)"
     }
   }
 
@@ -693,6 +755,7 @@ class RealMediaRepository(
     }
     current.add(0, updatedItem)
     val trimmed = current.take(12)
+    continueWatchingFlow.value = trimmed
     savePersistedContinueWatching()
   }
 
@@ -776,9 +839,17 @@ class RealMediaRepository(
       else -> "https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg"
     }
 
+    val resolvedTitle = title?.ifBlank { originalTitle ?: "Untitled" } ?: "Untitled"
+    val parsedTmdbId: Int? = when (tmdbId) {
+      is Number -> tmdbId.toInt()
+      is String -> tmdbId.replace("tmdb-", "").replace("imdb-", "").toIntOrNull()
+      else -> id.replace("tmdb-", "").replace("imdb-", "").toIntOrNull()
+    } ?: MediaEnrichmentRegistry.getTmdbIdForMedia(id, resolvedTitle)
+
     return MediaItem(
       id = id,
-      title = title?.ifBlank { originalTitle ?: "Untitled" } ?: "Untitled",
+      tmdbId = parsedTmdbId,
+      title = resolvedTitle,
       tagline = "",
       overview = overview?.ifBlank { "Stream in high-definition with high-speed multi-server streaming." } ?: "",
       backdropUrl = resolvedBackdrop,

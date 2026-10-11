@@ -32,6 +32,7 @@ data class Season(
 
 data class MediaItem(
   val id: String,
+  val tmdbId: Int? = null,
   val title: String,
   val tagline: String = "",
   val overview: String,

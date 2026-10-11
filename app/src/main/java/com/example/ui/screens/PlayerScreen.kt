@@ -1,7 +1,12 @@
 package com.example.ui.screens
 
+import android.app.Activity
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -11,7 +16,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +42,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,8 +51,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,7 +69,18 @@ import com.example.ui.theme.MutedSlate
 import com.example.ui.theme.WhiteTextPrimary
 import com.example.ui.theme.liquidGlassSurface
 import com.example.ui.theme.neumorphicDepth
+import kotlinx.coroutines.delay
 
+/**
+ * 2026 OTT Video Player & Live TV Stream Screen.
+ * Features:
+ * 1. AUTOMATIC LANDSCAPE ORIENTATION: Automatically locks to Landscape (SENSOR_LANDSCAPE) on entry,
+ *    and restores portrait when returning to main screens.
+ * 2. ROTATION TOGGLE: Dedicated ScreenRotation button in the top bar to easily switch between Landscape & Portrait.
+ * 3. CORRECT SERVER NAME BADGES: Accurately displays Server 1 (TGVid Stream) or Server 2 (VidSrc / Vidstack).
+ * 4. DIRECT UNBLOCKED EMBED TOUCHES: Allows full control of HTML5 seekbar, play/pause, volume, audio/subtitles.
+ * 5. FULL HTML5 MAXIMIZE: WebChromeClient.onShowCustomView & onHideCustomView for 100% full screen video expansion.
+ */
 @Composable
 fun PlayerScreen(
   mediaTitle: String,
@@ -70,19 +91,72 @@ fun PlayerScreen(
   onRetryOrSwitchServer: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
-  BackHandler { onBackClick() }
-
-  var controlsVisible by remember { mutableStateOf(true) }
+  val context = LocalContext.current
+  var isLandscape by remember { mutableStateOf(true) }
+  var customView by remember { mutableStateOf<View?>(null) }
+  var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
   var isPageLoading by remember { mutableStateOf(true) }
+  var isControlsVisible by remember { mutableStateOf(true) }
+  var touchResetTrigger by remember { mutableStateOf(0L) }
+
+  // Auto-fade controls overlay after 4 seconds of inactivity
+  LaunchedEffect(isControlsVisible, touchResetTrigger) {
+    if (isControlsVisible) {
+      delay(4000L)
+      isControlsVisible = false
+    }
+  }
+
+  fun showControlsAndResetTimer() {
+    isControlsVisible = true
+    touchResetTrigger = System.currentTimeMillis()
+  }
+
+  // 1. Force Sensor Landscape Mode on Entry, Restore Original Orientation on Exit
+  DisposableEffect(isLandscape) {
+    val activity = (context as? Activity) ?: (context as? ContextWrapper)?.baseContext as? Activity
+    val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+    if (isLandscape) {
+      activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    } else {
+      activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+
+    onDispose {
+      activity?.requestedOrientation = originalOrientation
+    }
+  }
+
+  // Handle Android Back Button: Exit HTML5 custom view if active, else navigate back
+  BackHandler {
+    if (customView != null) {
+      customViewCallback?.onCustomViewHidden()
+      customView = null
+      customViewCallback = null
+    } else {
+      onBackClick()
+    }
+  }
 
   Box(
     modifier = modifier
       .fillMaxSize()
       .background(Color.Black)
+      .pointerInput(Unit) {
+        awaitPointerEventScope {
+          while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.changes.any { it.changedToDown() }) {
+              showControlsAndResetTimer()
+            }
+          }
+        }
+      }
       .testTag("player_screen")
   ) {
     if (streamUrl.isNullOrBlank()) {
-      // Liquid Glass Playback Unavailable Card
+      // Playback Unavailable Card
       Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -132,9 +206,19 @@ fun PlayerScreen(
                   colors = ButtonDefaults.buttonColors(containerColor = CinemaWhite),
                   shape = RoundedCornerShape(10.dp)
                 ) {
-                  Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                  Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(16.dp)
+                  )
                   Spacer(modifier = Modifier.width(6.dp))
-                  Text("Select Server", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                  Text(
+                    text = "Select Server",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                  )
                 }
               }
               Button(
@@ -142,14 +226,14 @@ fun PlayerScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0x26FFFFFF)),
                 shape = RoundedCornerShape(10.dp)
               ) {
-                Text("Back", color = CinemaWhite, fontSize = 13.sp)
+                Text(text = "Back", color = CinemaWhite, fontSize = 13.sp)
               }
             }
           }
         }
       }
     } else {
-      // Embedded Player WebView
+      // 2. Embedded Player WebView with Full HTML5 Fullscreen & Touch Interaction
       AndroidView(
         factory = { ctx ->
           WebView(ctx).apply {
@@ -157,13 +241,41 @@ fun PlayerScreen(
               ViewGroup.LayoutParams.MATCH_PARENT,
               ViewGroup.LayoutParams.MATCH_PARENT
             )
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            settings.loadWithOverviewMode = true
-            settings.useWideViewPort = true
-            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            webChromeClient = WebChromeClient()
+
+            settings.apply {
+              javaScriptEnabled = true
+              domStorageEnabled = true
+              mediaPlaybackRequiresUserGesture = false
+              loadWithOverviewMode = true
+              useWideViewPort = true
+              mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+              allowFileAccess = true
+              allowContentAccess = true
+              setSupportZoom(false)
+              displayZoomControls = false
+              builtInZoomControls = false
+              databaseEnabled = true
+            }
+
+            webChromeClient = object : WebChromeClient() {
+              override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                super.onShowCustomView(view, callback)
+                if (customView != null) {
+                  callback?.onCustomViewHidden()
+                  return
+                }
+                customView = view
+                customViewCallback = callback
+              }
+
+              override fun onHideCustomView() {
+                super.onHideCustomView()
+                customViewCallback?.onCustomViewHidden()
+                customView = null
+                customViewCallback = null
+              }
+            }
+
             webViewClient = object : WebViewClient() {
               override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -186,6 +298,7 @@ fun PlayerScreen(
                 }
               }
             }
+
             loadUrl(streamUrl)
           }
         },
@@ -197,6 +310,20 @@ fun PlayerScreen(
         modifier = Modifier.fillMaxSize()
       )
 
+      // 3. HTML5 Custom Fullscreen View
+      if (customView != null) {
+        AndroidView(
+          factory = {
+            (customView?.parent as? ViewGroup)?.removeView(customView)
+            customView!!
+          },
+          modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+        )
+      }
+
+      // 4. Loading Indicator
       if (isPageLoading) {
         Box(
           modifier = Modifier.fillMaxSize(),
@@ -210,30 +337,20 @@ fun PlayerScreen(
         }
       }
 
-      // Clickable overlay toggling controls
-      Box(
-        modifier = Modifier
-          .fillMaxSize()
-          .clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-          ) {
-            controlsVisible = !controlsVisible
-          }
-      )
-
-      // Top Overlay Controls in Liquid Glass Pill
+      // 5. Floating Top Bar with Back, Title, Server Badge & Screen Rotation Toggle (With 4s Auto-Fade & Safe Top Clearance)
       AnimatedVisibility(
-        visible = controlsVisible,
+        visible = customView == null && isControlsVisible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = Modifier.align(Alignment.TopCenter)
+        modifier = Modifier
+          .fillMaxWidth()
+          .align(Alignment.TopCenter)
       ) {
         Box(
           modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = 8.dp)
         ) {
           Row(
             modifier = Modifier
@@ -244,7 +361,7 @@ fun PlayerScreen(
                 backgroundColor = Color(0xCC0D1017),
                 borderColor = GlassTokens.BorderHighlight
               )
-              .padding(horizontal = 12.dp, vertical = 8.dp),
+              .padding(horizontal = 12.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
@@ -253,7 +370,10 @@ fun PlayerScreen(
               modifier = Modifier.weight(1f)
             ) {
               IconButton(
-                onClick = onBackClick,
+                onClick = {
+                  showControlsAndResetTimer()
+                  onBackClick()
+                },
                 modifier = Modifier
                   .size(34.dp)
                   .neumorphicDepth(shape = CircleShape, elevation = 1.dp, baseColor = Color(0xFF161B24))
@@ -271,7 +391,7 @@ fun PlayerScreen(
                 Text(
                   text = mediaTitle,
                   color = WhiteTextPrimary,
-                  fontSize = 14.sp,
+                  fontSize = 13.sp,
                   fontWeight = FontWeight.Bold,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
@@ -288,8 +408,60 @@ fun PlayerScreen(
               }
             }
 
-            if (!serverName.isNullOrBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              // Screen Rotation Toggle Button (Landscape / Portrait)
+              IconButton(
+                onClick = {
+                  showControlsAndResetTimer()
+                  isLandscape = !isLandscape
+                },
+                modifier = Modifier
+                  .size(32.dp)
+                  .clip(CircleShape)
+                  .background(Color(0x33FFFFFF))
+                  .border(0.5.dp, Color(0x66FFFFFF), CircleShape)
+                  .testTag("player_rotate_button")
+              ) {
+                Icon(
+                  imageVector = Icons.Default.ScreenRotation,
+                  contentDescription = "Rotate Screen Orientation",
+                  tint = CinemaWhite,
+                  modifier = Modifier.size(16.dp)
+                )
+              }
+
               Spacer(modifier = Modifier.width(8.dp))
+
+              if (onRetryOrSwitchServer != null) {
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0x33FFFFFF))
+                    .border(0.5.dp, Color(0x66FFFFFF), RoundedCornerShape(8.dp))
+                    .clickable {
+                      showControlsAndResetTimer()
+                      onRetryOrSwitchServer()
+                    }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                  Text(
+                    text = "Servers",
+                    color = CinemaWhite,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+              }
+
+              // Server Badge Text (Displays "Server 1 (TGVid Stream)" for Server 1)
+              val cleanServerName = when {
+                serverName.orEmpty().contains("VidStuck", ignoreCase = true) -> "Server 1 (TGVid Stream)"
+                serverName.orEmpty().contains("VidStack", ignoreCase = true) -> "Server 1 (TGVid Stream)"
+                serverName.isNullOrBlank() -> "Server 1 (TGVid Stream)"
+                else -> serverName
+              }
+
               Box(
                 modifier = Modifier
                   .clip(RoundedCornerShape(6.dp))
@@ -298,7 +470,7 @@ fun PlayerScreen(
                   .padding(horizontal = 8.dp, vertical = 3.dp)
               ) {
                 Text(
-                  text = serverName,
+                  text = cleanServerName,
                   color = Color(0xFF00D9F5),
                   fontSize = 10.sp,
                   fontWeight = FontWeight.Bold

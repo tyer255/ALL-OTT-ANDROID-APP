@@ -163,6 +163,7 @@ data class PlaybackResolvedDataDto(
   @Json(name = "type") val type: String? = "movie",
   @Json(name = "serverId") val serverId: String,
   @Json(name = "serverName") val serverName: String? = null,
+  @Json(name = "embedUrl") val embedUrl: String? = null,
   @Json(name = "streamUrl") val streamUrl: String? = null,
   @Json(name = "securePlayerUrl") val securePlayerUrl: String? = null,
   @Json(name = "quality") val quality: String? = "1080p",

@@ -275,25 +275,19 @@ private fun ServerSelectionCard(
 ) {
   val interactionSource = remember { MutableInteractionSource() }
   val isPressed by interactionSource.collectIsPressedAsState()
-  val isRecommended = server.priority == 0 || server.id == "srv_tgvid"
 
   Box(
     modifier = modifier
       .fillMaxWidth()
       .neumorphicDepth(
         shape = RoundedCornerShape(14.dp),
-        elevation = if (isRecommended) 4.dp else 2.dp,
+        elevation = 2.dp,
         isPressed = isPressed,
-        baseColor = if (isRecommended) Color(0xFF141A28) else Color(0xFF121620)
+        baseColor = Color(0xFF131722)
       )
       .border(
-        width = if (isRecommended) 1.2.dp else 0.8.dp,
-        brush = Brush.linearGradient(
-          listOf(
-            if (isRecommended) Color(0x66FFFFFF) else Color(0x26FFFFFF),
-            if (isRecommended) Color(0x3310B981) else Color(0x0DFFFFFF)
-          )
-        ),
+        width = 0.8.dp,
+        color = Color(0x26FFFFFF),
         shape = RoundedCornerShape(14.dp)
       )
       .clickable(
@@ -309,34 +303,23 @@ private fun ServerSelectionCard(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
-      // Left: Server Icon & Information
+      // Left: Server Icon & Name
       Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.weight(1f)
       ) {
         Box(
           modifier = Modifier
-            .size(38.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(
-              Brush.linearGradient(
-                listOf(
-                  if (isRecommended) Color(0xFF1A3328) else Color(0xFF1A2232),
-                  if (isRecommended) Color(0xFF0F1E17) else Color(0xFF101620)
-                )
-              )
-            )
-            .border(
-              0.8.dp,
-              if (isRecommended) Color(0x4D10B981) else Color(0x26FFFFFF),
-              CircleShape
-            ),
+            .background(Color(0xFF1A2232))
+            .border(0.8.dp, Color(0x26FFFFFF), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Icon(
-            imageVector = if (isRecommended) Icons.Default.Star else Icons.Default.Dns,
+            imageVector = Icons.Default.Dns,
             contentDescription = null,
-            tint = if (isRecommended) Color(0xFF34D399) else CinemaWhite,
+            tint = CinemaWhite,
             modifier = Modifier.size(18.dp)
           )
         }
@@ -344,33 +327,14 @@ private fun ServerSelectionCard(
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-              text = server.name,
-              color = CinemaWhite,
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Bold,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis
-            )
-
-            if (isRecommended) {
-              Spacer(modifier = Modifier.width(6.dp))
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(4.dp))
-                  .background(Color(0x3310B981))
-                  .padding(horizontal = 5.dp, vertical = 1.dp)
-              ) {
-                Text(
-                  text = "BEST",
-                  color = Color(0xFF34D399),
-                  fontSize = 8.sp,
-                  fontWeight = FontWeight.Black
-                )
-              }
-            }
-          }
+          Text(
+            text = server.name,
+            color = CinemaWhite,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+          )
 
           Spacer(modifier = Modifier.height(3.dp))
 
@@ -407,7 +371,7 @@ private fun ServerSelectionCard(
 
       Spacer(modifier = Modifier.width(8.dp))
 
-      // Right: Obvious Primary Action Button (Play Now)
+      // Right: Action Area
       Row(verticalAlignment = Alignment.CenterVertically) {
         // Online Badge
         Box(
@@ -441,18 +405,14 @@ private fun ServerSelectionCard(
           modifier = Modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(if (isRecommended) Color(0xFF10B981) else Color(0x33FFFFFF))
-            .border(
-              0.8.dp,
-              if (isRecommended) Color(0x66FFFFFF) else Color(0x33FFFFFF),
-              CircleShape
-            ),
+            .background(Color(0x33FFFFFF))
+            .border(0.8.dp, Color(0x33FFFFFF), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Icon(
             imageVector = Icons.Default.PlayArrow,
             contentDescription = "Play Now",
-            tint = if (isRecommended) Color.Black else CinemaWhite,
+            tint = CinemaWhite,
             modifier = Modifier.size(18.dp)
           )
         }

@@ -25,8 +25,8 @@ interface MediaRepository {
   suspend fun getMediaDetails(id: String, type: String? = null): MediaItem?
   suspend fun getSeasonEpisodes(seriesId: String, seasonNumber: Int): List<Episode>
   suspend fun searchReal(query: String, type: String? = null): List<MediaItem>
-  suspend fun getServers(contentId: String, type: String, season: Int? = null, episode: Int? = null): List<ServerItem>
-  suspend fun resolvePlayback(contentId: String, type: String, serverId: String, season: Int? = null, episode: Int? = null): PlaybackResolved?
+  suspend fun getServers(contentId: String, type: String, season: Int? = null, episode: Int? = null, tmdbId: Int? = null, title: String? = null): List<ServerItem>
+  suspend fun resolvePlayback(contentId: String, type: String, serverId: String, season: Int? = null, episode: Int? = null, tmdbId: Int? = null, title: String? = null): PlaybackResolved?
   suspend fun getLiveTvChannels(): List<com.example.data.model.LiveTvChannel> = emptyList()
   suspend fun getDownloads(id: String, type: String, season: Int? = null, episode: Int? = null): com.example.data.model.DownloadsInfo? = null
   suspend fun getTrailer(query: String): com.example.data.model.TrailerInfo? = null

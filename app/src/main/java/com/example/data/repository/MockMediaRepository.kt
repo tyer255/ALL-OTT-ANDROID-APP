@@ -400,12 +400,18 @@ class MockMediaRepository : MediaRepository {
     contentId: String,
     type: String,
     season: Int?,
-    episode: Int?
+    episode: Int?,
+    tmdbId: Int?,
+    title: String?
   ): List<com.example.data.model.ServerItem> {
+    val cleanId = com.example.data.util.MediaEnrichmentRegistry.getCleanId(contentId, tmdbId, title)
+    val isTv = type in listOf("tv", "series")
+    val s = season ?: 1
+    val e = episode ?: 1
     return listOf(
-      com.example.data.model.ServerItem("srv_tgvid", "Server 1 (TGVID Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", "https://example.com/stream/tgvid", "http://anymovie.ai.studio/api/stream/embed", true, 0),
-      com.example.data.model.ServerItem("srv_1", "Server 1 Alt (Ultra 4K / Multi-Source)", "embed", "4K Ultra HD", "Multi-Audio (Hindi/Eng)", "https://example.com/stream/1", "http://anymovie.ai.studio/stream/1", true, 1),
-      com.example.data.model.ServerItem("srv_2", "Server 2 (VidLink High Speed CDN)", "embed", "1080p FHD", "Original + Subtitles", "https://example.com/stream/2", "http://anymovie.ai.studio/stream/2", true, 2)
+      com.example.data.model.ServerItem("srv_tgvid", "Server 1 (TGVID Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), null, true, 0),
+      com.example.data.model.ServerItem("srv_1", "Server 2 (VidSrc Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), null, true, 1),
+      com.example.data.model.ServerItem("srv_2", "Server 3 (Ultra Proxy)", "embed", "1080p FHD", "Cloudflare Worker Proxy", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_2", cleanId, isTv, s, e), null, true, 2)
     )
   }
 
@@ -414,19 +420,26 @@ class MockMediaRepository : MediaRepository {
     type: String,
     serverId: String,
     season: Int?,
-    episode: Int?
+    episode: Int?,
+    tmdbId: Int?,
+    title: String?
   ): com.example.data.model.PlaybackResolved? {
+    val cleanId = com.example.data.util.MediaEnrichmentRegistry.getCleanId(contentId, tmdbId, title)
+    val isTv = type in listOf("tv", "series")
+    val s = season ?: 1
+    val e = episode ?: 1
+    val url = com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl(serverId, cleanId, isTv, s, e)
     return com.example.data.model.PlaybackResolved(
-      contentId = contentId,
-      type = type,
+      contentId = cleanId,
+      type = if (isTv) "tv" else "movie",
       serverId = serverId,
-      serverName = "Server 1 (Ultra 4K)",
-      streamUrl = "https://proxy.niggasoup45.workers.dev/embed/movie/$contentId",
-      securePlayerUrl = "http://anymovie.ai.studio/api/stream/embed",
-      quality = "4K Ultra HD",
+      serverName = "Server ($serverId)",
+      streamUrl = url,
+      securePlayerUrl = url,
+      quality = "1080p FHD",
       language = "Multi-Audio",
-      season = season,
-      episode = episode,
+      season = if (isTv) s else null,
+      episode = if (isTv) e else null,
       available = true
     )
   }

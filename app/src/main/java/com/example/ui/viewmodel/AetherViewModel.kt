@@ -425,7 +425,7 @@ class AetherViewModel(
 
       val type = if (mediaItem.mediaType == MediaType.SERIES) "tv" else "movie"
       repository.recordWatchProgress(mediaItem, 0.25f)
-      val servers = repository.getServers(mediaItem.id, type, season, episode)
+      val servers = repository.getServers(mediaItem.id, type, season, episode, mediaItem.tmdbId, mediaItem.title)
 
       _uiState.update {
         it.copy(
@@ -451,7 +451,9 @@ class AetherViewModel(
         type = type,
         serverId = server.id,
         season = season,
-        episode = episode
+        episode = episode,
+        tmdbId = media.tmdbId,
+        title = media.title
       )
 
       val targetStreamUrl = resolved?.securePlayerUrl ?: resolved?.streamUrl ?: server.securePlayerUrl ?: server.url

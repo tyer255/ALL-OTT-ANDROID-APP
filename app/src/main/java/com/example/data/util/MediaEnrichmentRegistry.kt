@@ -232,5 +232,182 @@ object MediaEnrichmentRegistry {
       )
     }
   }
+
+  // TMDB ID Registry mapping titles & custom IDs to verified numeric TMDB IDs
+  private val TMDB_ID_MAP = mapOf(
+    // Anime
+    "anime_sl" to 209867,
+    "solo leveling" to 209867,
+    "anime_ds" to 85937,
+    "demon slayer" to 85937,
+    "anime_jjk" to 95479,
+    "jujutsu kaisen" to 95479,
+    "anime_csm" to 114410,
+    "chainsaw man" to 114410,
+    "anime_aot" to 1429,
+    "attack on titan" to 1429,
+    "anime_bleach" to 30984,
+    "bleach" to 30984,
+    "anime_op" to 37854,
+    "one piece" to 37854,
+    "anime_hxh" to 46298,
+    "hunter x hunter" to 46298,
+    "anime_frieren" to 154426,
+    "frieren" to 154426,
+    "anime_dn" to 13916,
+    "death note" to 13916,
+    "anime_fmab" to 31911,
+    "fullmetal alchemist" to 31911,
+    "anime_slime" to 82512,
+    "anime_mushoku" to 98596,
+    "mushoku tensei" to 98596,
+    "anime_rezero" to 65942,
+    "anime_suzume" to 916224,
+    "suzume" to 916224,
+    "anime_your_name" to 372058,
+    "your name" to 372058,
+    "anime_spirited_away" to 129,
+    "spirited away" to 129,
+    "anime_silent_voice" to 378064,
+    "a silent voice" to 378064,
+    "anime_weathering" to 568160,
+    "weathering with you" to 568160,
+    "anime_pancreas" to 504253,
+    "i want to eat your pancreas" to 504253,
+    "anime_5cm" to 18148,
+    "5 centimeters per second" to 18148,
+    "anime_fireflies" to 12477,
+    "grave of the fireflies" to 12477,
+    "anime_garden_words" to 198375,
+    "anime_hotarubi" to 133931,
+    "anime_maquia" to 476292,
+    "anime_overlord" to 63926,
+    "overlord" to 63926,
+    "anime_shield_hero" to 80752,
+    "the rising of the shield hero" to 80752,
+
+    // Movies & Global TV
+    "stranger things" to 66732,
+    "tt4574334" to 66732,
+    "wednesday" to 119051,
+    "tt13443470" to 119051,
+    "squid game" to 93405,
+    "tt10919420" to 93405,
+    "the boys" to 76479,
+    "tt1190634" to 76479,
+    "extraction" to 697843,
+    "extraction 2" to 697843,
+    "jawan" to 866398,
+    "money heist" to 71446,
+    "dark" to 70523,
+    "fight club" to 550,
+    "breaking bad" to 1396,
+    "interstellar" to 157336,
+    "inception" to 27205,
+    "the dark knight" to 155,
+    "dune" to 438631,
+    "dune: part two" to 693134,
+    "spider-man" to 569094,
+    "across the spider-verse" to 569094,
+    "pushpa 2" to 838209,
+    "avatar" to 76600
+  )
+
+  fun getTmdbIdForMedia(contentId: String, title: String? = null): Int? {
+    val normId = contentId.trim().lowercase()
+    TMDB_ID_MAP[normId]?.let { return it }
+
+    if (!title.isNullOrBlank()) {
+      val normTitle = title.trim().lowercase()
+      TMDB_ID_MAP[normTitle]?.let { return it }
+      TMDB_ID_MAP.entries.find { normTitle.contains(it.key) || it.key.contains(normTitle) }?.let { return it.value }
+    }
+
+    return null
+  }
+
+  /**
+   * Clean and sanitize content ID into a clean numeric TMDB ID or IMDb ID.
+   * Strips string prefixes like "tmdb-" or "imdb-".
+   */
+  fun getCleanId(contentId: String, itemTmdbId: Int? = null, title: String? = null): String {
+    if (itemTmdbId != null && itemTmdbId > 0) {
+      return itemTmdbId.toString()
+    }
+    var clean = contentId.trim()
+    if (clean.startsWith("tmdb-")) {
+      clean = clean.replace("tmdb-", "")
+    }
+    if (clean.startsWith("imdb-")) {
+      clean = clean.replace("imdb-", "")
+    }
+    if (clean.all { it.isDigit() } && clean.isNotEmpty()) {
+      return clean
+    }
+    if (clean.startsWith("tt") && clean.length > 2 && clean.substring(2).all { it.isDigit() }) {
+      return clean
+    }
+
+    val tmdb = getTmdbIdForMedia(contentId, title)
+    if (tmdb != null && tmdb > 0) {
+      return tmdb.toString()
+    }
+
+    return clean
+  }
+
+  /**
+   * Constructs direct server embed URLs for all 8 server options with cleaned TMDB ID.
+   */
+  fun constructDirectServerUrl(
+    serverId: String,
+    cleanId: String,
+    isTv: Boolean,
+    season: Int = 1,
+    episode: Int = 1
+  ): String {
+    val s = if (season <= 0) 1 else season
+    val e = if (episode <= 0) 1 else episode
+    val sId = serverId.lowercase().trim()
+
+    return when {
+      sId.contains("tgvid") || sId == "srv_tgvid" -> {
+        if (isTv) "https://tgvid.lovable.app/embed/tv/$cleanId/$s/$e"
+        else "https://tgvid.lovable.app/embed/movie/$cleanId"
+      }
+      sId == "srv_1" || sId.contains("vidstuck") -> {
+        if (isTv) "https://vidstuck.xyz/embed/tv/$cleanId/$s/$e"
+        else "https://vidstuck.xyz/embed/movie/$cleanId"
+      }
+      sId == "srv_2" || sId.contains("proxy") || sId.contains("ultra") -> {
+        if (isTv) "https://proxy.niggasoup45.workers.dev/embed/tv/$cleanId/$s/$e"
+        else "https://proxy.niggasoup45.workers.dev/embed/movie/$cleanId"
+      }
+      sId == "srv_3" || sId.contains("vidsrc.me") || sId.contains("pro") -> {
+        if (isTv) "https://vidsrc.me/embed/tv?tmdb=$cleanId&season=$s&episode=$e"
+        else "https://vidsrc.me/embed/movie?tmdb=$cleanId"
+      }
+      sId == "srv_5" || sId.contains("vidsrc.pm") -> {
+        if (isTv) "https://vidsrc.pm/embed/tv/$cleanId/$s/$e"
+        else "https://vidsrc.pm/embed/movie/$cleanId"
+      }
+      sId == "srv_6" || sId.contains("videasy") -> {
+        if (isTv) "https://player.videasy.to/tv/$cleanId/$s/$e"
+        else "https://player.videasy.to/movie/$cleanId"
+      }
+      sId == "srv_4" || sId.contains("vidsrc.su") -> {
+        if (isTv) "https://vidsrc.su/embed/tv/$cleanId/$s/$e"
+        else "https://vidsrc.su/embed/movie/$cleanId"
+      }
+      sId == "srv_7" || sId.contains("2embed") -> {
+        if (isTv) "https://www.2embed.cc/embedtv/$cleanId&s=$s&e=$e"
+        else "https://www.2embed.cc/embed/$cleanId"
+      }
+      else -> {
+        if (isTv) "https://tgvid.lovable.app/embed/tv/$cleanId/$s/$e"
+        else "https://tgvid.lovable.app/embed/movie/$cleanId"
+      }
+    }
+  }
 }
 
