@@ -583,12 +583,28 @@ class RealMediaRepository(
 
     val fallbackUrl = MediaEnrichmentRegistry.constructDirectServerUrl(serverId, cleanId, isTv, s, e)
 
+    // If serverId is srv_tgvid, serve genuine TGVid Stream embed URL directly!
+    if (serverId == "srv_tgvid") {
+      return PlaybackResolved(
+        contentId = cleanId,
+        type = apiType,
+        serverId = "srv_tgvid",
+        serverName = "Server 1 (TGVid Stream)",
+        streamUrl = fallbackUrl,
+        securePlayerUrl = fallbackUrl,
+        quality = "1080p FHD",
+        language = "Multi-Audio (Hindi/Eng)",
+        season = if (isTv) s else null,
+        episode = if (isTv) e else null,
+        available = true
+      )
+    }
+
     return try {
-      val apiServerId = if (serverId == "srv_tgvid") "srv_1" else serverId
       val request = PlaybackResolveRequest(
         contentId = cleanId,
         type = apiType,
-        serverId = apiServerId,
+        serverId = serverId,
         season = if (isTv) s else null,
         episode = if (isTv) e else null
       )
@@ -657,15 +673,16 @@ class RealMediaRepository(
     val canonical = getCanonicalProviderKey(serverId, clean, null)
     val provider = cleanProviderDisplayName(canonical, clean)
     val number = when (serverId.lowercase().trim()) {
-      "srv_1", "srv_tgvid" -> 1
-      "srv_2" -> 2
-      "srv_3", "srv_vidsrc" -> 3
-      "srv_4", "srv_vidsrcicu" -> 4
-      "srv_5", "srv_embedsu" -> 5
-      "srv_6", "srv_2embed" -> 6
-      "srv_videasy" -> 7
-      "srv_smashy" -> 8
-      "srv_autoembed" -> 9
+      "srv_tgvid" -> 1
+      "srv_1" -> 2
+      "srv_2", "srv_proxy" -> 3
+      "srv_3", "srv_vidsrc" -> 4
+      "srv_4", "srv_vidsrcicu" -> 5
+      "srv_5", "srv_embedsu" -> 6
+      "srv_6", "srv_2embed" -> 7
+      "srv_videasy" -> 8
+      "srv_smashy" -> 9
+      "srv_autoembed" -> 10
       else -> {
         val numMatch = Regex("\\d+").find(serverId)
         numMatch?.value?.toIntOrNull() ?: 1

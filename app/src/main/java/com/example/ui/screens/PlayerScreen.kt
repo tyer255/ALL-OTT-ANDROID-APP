@@ -777,9 +777,8 @@ fun PlayerScreen(
 
               val cleanServerName = when {
                 isLive -> "Live TV"
-                serverName.orEmpty().contains("TGVid", ignoreCase = true) ||
-                serverName.orEmpty().contains("VidStuck", ignoreCase = true) ||
-                serverName.orEmpty().contains("VidStack", ignoreCase = true) ||
+                serverName.orEmpty().contains("TGVid", ignoreCase = true) -> "Server 1 (TGVid Stream)"
+                serverName.orEmpty().contains("VidStuck", ignoreCase = true) -> "Server 2 (VidStuck Stream)"
                 serverName.isNullOrBlank() -> "Server 1 (TGVid Stream)"
                 else -> serverName
               }
