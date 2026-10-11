@@ -175,7 +175,7 @@ fun AetherStreamApp(
           mediaTitle = channel?.name ?: "Live Channel",
           subtitle = "Live • ${channel?.category ?: "Broadcast"}",
           streamUrl = channel?.embedUrl ?: channel?.watchUrl,
-          serverName = "Live Feed",
+          serverName = "Live TV",
           onBackClick = { viewModel.navigateBack() }
         )
       }

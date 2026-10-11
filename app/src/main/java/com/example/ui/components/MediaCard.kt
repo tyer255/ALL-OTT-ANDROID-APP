@@ -77,18 +77,19 @@ fun MediaCard(
   val isPressed by interactionSource.collectIsPressedAsState()
   var imageLoadFailed by remember { mutableStateOf(false) }
 
-  // Smooth entrance animation
-  val animAlpha = remember { Animatable(0f) }
-  val animScale = remember { Animatable(0.92f) }
-  val animSlideX = remember { Animatable(20f) }
+  // Smooth entrance animation - instant if staggerIndex is 0 for scrolling performance
+  val animAlpha = remember { Animatable(if (staggerIndex > 0) 0f else 1f) }
+  val animScale = remember { Animatable(if (staggerIndex > 0) 0.95f else 1f) }
+  val animSlideX = remember { Animatable(if (staggerIndex > 0) 15f else 0f) }
 
-  LaunchedEffect(mediaItem.id) {
-    val delayMs = (staggerIndex.coerceAtMost(6) * 30).toLong()
-    delay(delayMs)
-
-    launch { animAlpha.animateTo(1f, tween(260)) }
-    launch { animScale.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)) }
-    launch { animSlideX.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) }
+  if (staggerIndex > 0) {
+    LaunchedEffect(mediaItem.id) {
+      val delayMs = (staggerIndex.coerceAtMost(5) * 25).toLong()
+      delay(delayMs)
+      launch { animAlpha.animateTo(1f, tween(180)) }
+      launch { animScale.animateTo(1f, spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) }
+      launch { animSlideX.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) }
+    }
   }
 
   val pressScale = if (isPressed) 0.96f else 1.0f

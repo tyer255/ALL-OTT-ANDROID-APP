@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -83,7 +85,7 @@ fun AetherBottomNavigation(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .height(62.dp)
+        .height(64.dp)
         .liquidGlassSurface(
           shape = RoundedCornerShape(32.dp),
           elevation = 6.dp,
@@ -110,73 +112,89 @@ fun AetherBottomNavigation(
           label = "nav_tint_${tab.label}"
         )
 
-        Column(
+        val pillBgColor by animateColorAsState(
+          targetValue = if (isSelected) Color(0x24FFFFFF) else Color.Transparent,
+          label = "nav_bg_${tab.label}"
+        )
+
+        val pillBorderColor by animateColorAsState(
+          targetValue = if (isSelected) Color(0x33FFFFFF) else Color.Transparent,
+          label = "nav_border_${tab.label}"
+        )
+
+        // Outer touch container maintaining full 64dp height (> 48dp) for accessibility
+        Box(
           modifier = Modifier
             .weight(1f)
+            .fillMaxHeight()
             .clickable(
               interactionSource = remember { MutableInteractionSource() },
               indication = null,
               onClick = { onNavigate(tab.screen) }
             )
             .testTag(tab.testTag),
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.Center
+          contentAlignment = Alignment.Center
         ) {
+          // Compact, balanced active highlight pill with 10dp clearance from outer borders
           Box(
-            modifier = if (isSelected) {
-              Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0x26FFFFFF))
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-            } else {
-              Modifier.padding(vertical = 4.dp)
-            },
+            modifier = Modifier
+              .height(44.dp)
+              .fillMaxWidth(0.86f)
+              .clip(RoundedCornerShape(16.dp))
+              .background(pillBgColor)
+              .border(0.8.dp, pillBorderColor, RoundedCornerShape(16.dp))
+              .padding(horizontal = 4.dp, vertical = 2.dp),
             contentAlignment = Alignment.Center
           ) {
-            if (tab.iconDrawableRes != null) {
-              Icon(
-                painter = painterResource(id = tab.iconDrawableRes),
-                contentDescription = tab.label,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp)
-              )
-            } else if (tab.activeIcon != null && tab.inactiveIcon != null) {
-              Icon(
-                imageVector = if (isSelected) tab.activeIcon else tab.inactiveIcon,
-                contentDescription = tab.label,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp)
-              )
-            }
-          }
-
-          Text(
-            text = tab.label,
-            color = iconTint,
-            fontSize = 9.5.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            modifier = Modifier.padding(top = 1.dp)
-          )
-
-          if (isSelected) {
-            Box(
-              modifier = Modifier
-                .padding(top = 2.dp)
-                .width(10.dp)
-                .height(2.dp)
-                .clip(CircleShape)
-                .background(
-                  Brush.horizontalGradient(
-                    listOf(
-                      Color(0x33FFFFFF),
-                      CinemaWhite,
-                      Color(0x33FFFFFF)
-                    )
-                  )
+            Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.Center
+            ) {
+              if (tab.iconDrawableRes != null) {
+                Icon(
+                  painter = painterResource(id = tab.iconDrawableRes),
+                  contentDescription = tab.label,
+                  tint = iconTint,
+                  modifier = Modifier.size(19.dp)
                 )
-            )
-          } else {
-            Spacer(modifier = Modifier.height(4.dp))
+              } else if (tab.activeIcon != null && tab.inactiveIcon != null) {
+                Icon(
+                  imageVector = if (isSelected) tab.activeIcon else tab.inactiveIcon,
+                  contentDescription = tab.label,
+                  tint = iconTint,
+                  modifier = Modifier.size(19.dp)
+                )
+              }
+
+              Spacer(modifier = Modifier.height(2.dp))
+
+              Text(
+                text = tab.label,
+                color = iconTint,
+                fontSize = 10.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1
+              )
+
+              if (isSelected) {
+                Spacer(modifier = Modifier.height(1.dp))
+                Box(
+                  modifier = Modifier
+                    .width(8.dp)
+                    .height(2.dp)
+                    .clip(CircleShape)
+                    .background(
+                      Brush.horizontalGradient(
+                        listOf(
+                          Color(0x33FFFFFF),
+                          CinemaWhite,
+                          Color(0x33FFFFFF)
+                        )
+                      )
+                    )
+                )
+              }
+            }
           }
         }
       }

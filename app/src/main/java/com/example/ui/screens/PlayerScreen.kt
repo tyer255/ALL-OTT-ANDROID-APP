@@ -3,8 +3,10 @@ package com.example.ui.screens
 import android.app.Activity
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -13,6 +15,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +37,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material3.Button
@@ -71,6 +79,183 @@ import com.example.ui.theme.liquidGlassSurface
 import com.example.ui.theme.neumorphicDepth
 import kotlinx.coroutines.delay
 
+enum class VideoFitMode(val label: String) {
+  FIT("Fit (16:9)"),
+  FILL("Fill"),
+  STRETCH("Stretch")
+}
+
+private data class FitConfig(
+  val landscapeWidth: String,
+  val landscapeHeight: String,
+  val objectFit: String,
+  val videoWidth: String,
+  val videoHeight: String,
+  val aspectRatio: String
+)
+
+private fun getFitInjectionScript(fitMode: VideoFitMode): String {
+  val cfg = when (fitMode) {
+    VideoFitMode.FIT -> FitConfig(
+      landscapeWidth = "calc(100vh * (16 / 9))",
+      landscapeHeight = "100vh",
+      objectFit = "contain",
+      videoWidth = "100%",
+      videoHeight = "100%",
+      aspectRatio = "16 / 9"
+    )
+    VideoFitMode.FILL -> FitConfig(
+      landscapeWidth = "100vw",
+      landscapeHeight = "100vh",
+      objectFit = "cover",
+      videoWidth = "100vw",
+      videoHeight = "100vh",
+      aspectRatio = "auto"
+    )
+    VideoFitMode.STRETCH -> FitConfig(
+      landscapeWidth = "100vw",
+      landscapeHeight = "100vh",
+      objectFit = "fill",
+      videoWidth = "100vw",
+      videoHeight = "100vh",
+      aspectRatio = "auto"
+    )
+  }
+
+  return """
+    (function() {
+      try {
+        var style = document.getElementById('aether-fit-style');
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'aether-fit-style';
+          document.head.appendChild(style);
+        }
+        style.textContent = `
+          html, body {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background-color: #000000 !important;
+          }
+
+          /* Live TV flex wrappers: prevent overflowing container height */
+          div[class*="overflow-hidden bg-player-surface"],
+          .flex.h-full.w-full.items-center,
+          div.flex.h-full.w-full.items-center {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #000000 !important;
+          }
+
+          /* Fit .tg-player container perfectly within screen boundaries */
+          @media (orientation: landscape) {
+            .tg-player,
+            div.tg-player,
+            [class*="tg-player"] {
+              height: ${cfg.landscapeHeight} !important;
+              max-height: 100vh !important;
+              width: ${cfg.landscapeWidth} !important;
+              max-width: 100vw !important;
+              aspect-ratio: ${cfg.aspectRatio} !important;
+              margin: 0 auto !important;
+              position: relative !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: center !important;
+              align-items: center !important;
+              overflow: hidden !important;
+            }
+          }
+
+          @media (orientation: portrait) {
+            .tg-player,
+            div.tg-player,
+            [class*="tg-player"] {
+              width: 100vw !important;
+              max-width: 100vw !important;
+              height: ${if (fitMode == VideoFitMode.FIT) "calc(100vw * (9 / 16))" else "100vh"} !important;
+              max-height: 100vh !important;
+              aspect-ratio: ${cfg.aspectRatio} !important;
+              margin: auto 0 !important;
+              position: relative !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: center !important;
+              align-items: center !important;
+              overflow: hidden !important;
+            }
+          }
+
+          /* Ensure video element does not cut off subtitles, news tickers, or logos */
+          video,
+          .tg-player video,
+          iframe {
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            width: ${cfg.videoWidth} !important;
+            height: ${cfg.videoHeight} !important;
+            object-fit: ${cfg.objectFit} !important;
+          }
+
+          /* Dock in-player controls comfortably at visible bottom */
+          .player-controls,
+          div.player-controls,
+          [class*="player-controls"] {
+            bottom: 8px !important;
+            inset-inline-start: 12px !important;
+            inset-inline-end: 12px !important;
+            max-width: calc(100vw - 24px) !important;
+            z-index: 99999 !important;
+          }
+
+          /* Hide unwanted third-party badges covering in-player controls */
+          #lovable-badge {
+            display: none !important;
+          }
+        `;
+
+        // Ensure responsive viewport meta
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.name = 'viewport';
+          document.head.appendChild(meta);
+        }
+        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+
+        // Apply object-fit to all video elements
+        var vids = document.querySelectorAll('video');
+        for (var i = 0; i < vids.length; i++) {
+          vids[i].style.objectFit = '${cfg.objectFit}';
+        }
+
+        // Fullscreen API polyfill for in-player maximize button
+        if (!Element.prototype.requestFullscreen && Element.prototype.webkitRequestFullscreen) {
+          Element.prototype.requestFullscreen = Element.prototype.webkitRequestFullscreen;
+        }
+        if (!document.exitFullscreen && document.webkitExitFullscreen) {
+          document.exitFullscreen = document.webkitExitFullscreen;
+        }
+      } catch (e) {
+        console.error('Player fit injection error', e);
+      }
+    })();
+  """.trimIndent()
+}
+
 /**
  * 2026 OTT Video Player & Live TV Stream Screen.
  * Features:
@@ -93,11 +278,18 @@ fun PlayerScreen(
 ) {
   val context = LocalContext.current
   var isLandscape by remember { mutableStateOf(true) }
+  var fitMode by remember { mutableStateOf(VideoFitMode.FIT) }
+  var webViewRef by remember { mutableStateOf<WebView?>(null) }
   var customView by remember { mutableStateOf<View?>(null) }
   var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
   var isPageLoading by remember { mutableStateOf(true) }
   var isControlsVisible by remember { mutableStateOf(true) }
   var touchResetTrigger by remember { mutableStateOf(0L) }
+
+  // Immediately apply aspect-ratio fit mode changes dynamically to active WebView
+  LaunchedEffect(fitMode) {
+    webViewRef?.evaluateJavascript(getFitInjectionScript(fitMode), null)
+  }
 
   // Auto-fade controls overlay after 4 seconds of inactivity
   LaunchedEffect(isControlsVisible, touchResetTrigger) {
@@ -110,22 +302,69 @@ fun PlayerScreen(
   fun showControlsAndResetTimer() {
     isControlsVisible = true
     touchResetTrigger = System.currentTimeMillis()
+    val activity = (context as? Activity) ?: (context as? ContextWrapper)?.baseContext as? Activity
+    val window = activity?.window
+    if (window != null) {
+      val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+      insetsController.hide(WindowInsetsCompat.Type.systemBars())
+    }
   }
 
-  // 1. Force Sensor Landscape Mode on Entry, Restore Original Orientation on Exit
+  // 1. Manage Immersive Sticky Fullscreen (Hide Both Status and Navigation Bars), Display Cutout & Keep Screen On
+  DisposableEffect(Unit) {
+    val activity = (context as? Activity) ?: (context as? ContextWrapper)?.baseContext as? Activity
+    val window = activity?.window
+    val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    val originalCutoutMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      window?.attributes?.layoutInDisplayCutoutMode ?: WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+    } else {
+      0
+    }
+
+    if (window != null) {
+      // Extend into cutout / display notch in landscape mode to eliminate white or black system gaps
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        val params = window.attributes
+        params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        window.attributes = params
+      }
+
+      // Hide BOTH status bars and navigation bars using WindowInsetsControllerCompat with immersive sticky behavior
+      WindowCompat.setDecorFitsSystemWindows(window, false)
+      val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+      insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      insetsController.hide(WindowInsetsCompat.Type.systemBars())
+
+      // Keep screen on during active playback
+      window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    onDispose {
+      activity?.requestedOrientation = originalOrientation
+      if (window != null) {
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+        insetsController.show(WindowInsetsCompat.Type.systemBars())
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+          val params = window.attributes
+          params.layoutInDisplayCutoutMode = originalCutoutMode
+          window.attributes = params
+        }
+      }
+    }
+  }
+
+  // 2. Manage Orientation Switching (Landscape <-> Portrait) without disturbing immersive sticky mode
   DisposableEffect(isLandscape) {
     val activity = (context as? Activity) ?: (context as? ContextWrapper)?.baseContext as? Activity
-    val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-
     if (isLandscape) {
       activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
     } else {
       activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
-
-    onDispose {
-      activity?.requestedOrientation = originalOrientation
-    }
+    onDispose { }
   }
 
   // Handle Android Back Button: Exit HTML5 custom view if active, else navigate back
@@ -242,12 +481,20 @@ fun PlayerScreen(
               ViewGroup.LayoutParams.MATCH_PARENT
             )
 
+            webViewRef = this
+
+            val cookieManager = android.webkit.CookieManager.getInstance()
+            cookieManager.setAcceptCookie(true)
+            cookieManager.setAcceptThirdPartyCookies(this, true)
+
             settings.apply {
               javaScriptEnabled = true
               domStorageEnabled = true
               mediaPlaybackRequiresUserGesture = false
               loadWithOverviewMode = true
               useWideViewPort = true
+              textZoom = 100
+              javaScriptCanOpenWindowsAutomatically = true
               mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
               allowFileAccess = true
               allowContentAccess = true
@@ -258,6 +505,17 @@ fun PlayerScreen(
             }
 
             webChromeClient = object : WebChromeClient() {
+              override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
+                request?.grant(request.resources)
+              }
+
+              override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                if (newProgress >= 70) {
+                  isPageLoading = false
+                }
+              }
+
               override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 super.onShowCustomView(view, callback)
                 if (customView != null) {
@@ -277,9 +535,15 @@ fun PlayerScreen(
             }
 
             webViewClient = object : WebViewClient() {
+              override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                view?.evaluateJavascript(getFitInjectionScript(fitMode), null)
+              }
+
               override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 isPageLoading = false
+                view?.evaluateJavascript(getFitInjectionScript(fitMode), null)
               }
 
               override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
@@ -303,6 +567,7 @@ fun PlayerScreen(
           }
         },
         update = { webView ->
+          webViewRef = webView
           if (webView.url != streamUrl && !streamUrl.isNullOrBlank()) {
             webView.loadUrl(streamUrl)
           }
@@ -314,8 +579,19 @@ fun PlayerScreen(
       if (customView != null) {
         AndroidView(
           factory = {
-            (customView?.parent as? ViewGroup)?.removeView(customView)
-            customView!!
+            val v = customView!!
+            (v.parent as? ViewGroup)?.removeView(v)
+            v.layoutParams = ViewGroup.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT,
+              ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            v
+          },
+          update = { v ->
+            v.layoutParams = ViewGroup.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT,
+              ViewGroup.LayoutParams.MATCH_PARENT
+            )
           },
           modifier = Modifier
             .fillMaxSize()
@@ -337,7 +613,7 @@ fun PlayerScreen(
         }
       }
 
-      // 5. Floating Top Bar with Back, Title, Server Badge & Screen Rotation Toggle (With 4s Auto-Fade & Safe Top Clearance)
+      // 5. Floating Top Bar with Back, Title, Server Badge & Screen Rotation Toggle (Attached to Top Edge)
       AnimatedVisibility(
         visible = customView == null && isControlsVisible,
         enter = fadeIn(),
@@ -349,19 +625,18 @@ fun PlayerScreen(
         Box(
           modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = 8.dp)
+            .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 0.dp)
         ) {
           Row(
             modifier = Modifier
               .fillMaxWidth()
               .liquidGlassSurface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 elevation = 4.dp,
                 backgroundColor = Color(0xCC0D1017),
                 borderColor = GlassTokens.BorderHighlight
               )
-              .padding(horizontal = 12.dp, vertical = 7.dp),
+              .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
@@ -432,6 +707,48 @@ fun PlayerScreen(
 
               Spacer(modifier = Modifier.width(8.dp))
 
+              // Video Fit Mode Toggle Button (Fit 16:9 -> Fill -> Stretch)
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(Color(0x26FFFFFF))
+                  .border(0.5.dp, Color(0x4DFFFFFF), RoundedCornerShape(8.dp))
+                  .clickable {
+                    showControlsAndResetTimer()
+                    fitMode = when (fitMode) {
+                      VideoFitMode.FIT -> VideoFitMode.FILL
+                      VideoFitMode.FILL -> VideoFitMode.STRETCH
+                      VideoFitMode.STRETCH -> VideoFitMode.FIT
+                    }
+                  }
+                  .padding(horizontal = 8.dp, vertical = 4.dp)
+                  .testTag("player_fit_mode_button")
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                  Icon(
+                    imageVector = when (fitMode) {
+                      VideoFitMode.FIT -> Icons.Default.FitScreen
+                      VideoFitMode.FILL -> Icons.Default.CropFree
+                      VideoFitMode.STRETCH -> Icons.Default.AspectRatio
+                    },
+                    contentDescription = "Aspect Ratio Fit Mode",
+                    tint = CinemaWhite,
+                    modifier = Modifier.size(14.dp)
+                  )
+                  Text(
+                    text = fitMode.label,
+                    color = CinemaWhite,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
+              }
+
+              Spacer(modifier = Modifier.width(8.dp))
+
               if (onRetryOrSwitchServer != null) {
                 Box(
                   modifier = Modifier
@@ -454,27 +771,49 @@ fun PlayerScreen(
                 Spacer(modifier = Modifier.width(8.dp))
               }
 
-              // Server Badge Text (Displays "Server 1 (TGVid Stream)" for Server 1)
+              // Server Badge Text (Live TV vs Movies & Shows)
+              val isLive = serverName.orEmpty().contains("Live", ignoreCase = true) ||
+                  subtitle.orEmpty().contains("Live", ignoreCase = true)
+
               val cleanServerName = when {
-                serverName.orEmpty().contains("VidStuck", ignoreCase = true) -> "Server 1 (TGVid Stream)"
-                serverName.orEmpty().contains("VidStack", ignoreCase = true) -> "Server 1 (TGVid Stream)"
+                isLive -> "Live TV"
+                serverName.orEmpty().contains("TGVid", ignoreCase = true) ||
+                serverName.orEmpty().contains("VidStuck", ignoreCase = true) ||
+                serverName.orEmpty().contains("VidStack", ignoreCase = true) ||
                 serverName.isNullOrBlank() -> "Server 1 (TGVid Stream)"
                 else -> serverName
               }
 
+              val badgeBgColor = if (isLive) Color(0x33E50914) else Color(0x3300D9F5)
+              val badgeBorderColor = if (isLive) Color(0x80E50914) else Color(0x6600D9F5)
+              val badgeTextColor = if (isLive) Color(0xFFFF5252) else Color(0xFF00D9F5)
+
               Box(
                 modifier = Modifier
                   .clip(RoundedCornerShape(6.dp))
-                  .background(Color(0x3300D9F5))
-                  .border(0.5.dp, Color(0x6600D9F5), RoundedCornerShape(6.dp))
+                  .background(badgeBgColor)
+                  .border(0.5.dp, badgeBorderColor, RoundedCornerShape(6.dp))
                   .padding(horizontal = 8.dp, vertical = 3.dp)
               ) {
-                Text(
-                  text = cleanServerName,
-                  color = Color(0xFF00D9F5),
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.Bold
-                )
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                  if (isLive) {
+                    Box(
+                      modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE50914))
+                    )
+                  }
+                  Text(
+                    text = cleanServerName,
+                    color = badgeTextColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
               }
             }
           }

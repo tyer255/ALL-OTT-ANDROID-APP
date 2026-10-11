@@ -7,6 +7,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -266,32 +267,43 @@ fun SearchScreen(
           }
         }
 
-        // Recommended Starter Results (2-col mobile, 3-col tablet)
+        // Recommended Starter Results (Exactly 2 Infinite Auto-scrolling Rows with compact thumbnails)
         Text(
           text = "Recommended for You",
           color = CinemaWhite,
           fontSize = 15.sp,
           fontWeight = FontWeight.Bold,
-          modifier = Modifier.padding(vertical = 8.dp)
+          modifier = Modifier.padding(top = 10.dp, bottom = 12.dp)
         )
 
-        LazyVerticalGrid(
-          columns = GridCells.Adaptive(minSize = 140.dp),
-          contentPadding = PaddingValues(bottom = 20.dp),
-          horizontalArrangement = Arrangement.spacedBy(10.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp),
-          modifier = Modifier.weight(1f)
+        // Split recommended search results into 2 rows of 7 items each
+        val recommendedSource = uiState.searchResults.ifEmpty { uiState.contentRows.flatMap { it.items } }
+        val row1Items = remember(recommendedSource) { recommendedSource.take(7) }
+        val row2Items = remember(recommendedSource) { recommendedSource.drop(7).take(7).ifEmpty { recommendedSource.take(7) } }
+
+        Column(
+          verticalArrangement = Arrangement.spacedBy(14.dp),
+          modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
         ) {
-          items(uiState.searchResults, key = { it.id }) { item ->
-            MediaCard(
-              mediaItem = item,
-              onClick = { onMediaClick(item) },
-              cardWidth = 0, // fills column width
-              showMetaInfo = true,
-              isBookmarked = isBookmarked(item.id),
-              onBookmarkClick = { onToggleMyList(item) }
-            )
-          }
+          // Row 1: Rightwards moving marquee (7 items)
+          InfiniteAutoScrollRow(
+            items = row1Items,
+            moveRight = true,
+            onMediaClick = onMediaClick,
+            isBookmarked = isBookmarked,
+            onToggleMyList = onToggleMyList
+          )
+
+          // Row 2: Leftwards moving marquee (7 items)
+          InfiniteAutoScrollRow(
+            items = row2Items,
+            moveRight = false,
+            onMediaClick = onMediaClick,
+            isBookmarked = isBookmarked,
+            onToggleMyList = onToggleMyList
+          )
         }
       }
     } else if (uiState.searchResults.isEmpty()) {
@@ -351,6 +363,74 @@ fun SearchScreen(
           )
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun InfiniteAutoScrollRow(
+  items: List<MediaItem>,
+  moveRight: Boolean,
+  onMediaClick: (MediaItem) -> Unit,
+  isBookmarked: (String) -> Boolean,
+  onToggleMyList: (MediaItem) -> Unit,
+  modifier: Modifier = Modifier
+) {
+  if (items.isEmpty()) return
+
+  val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+  // Repeat items count to provide seamless infinite scrolling without excessive memory footprint
+  val infiniteList = remember(items) { List(50) { items }.flatten() }
+  val startIndex = remember(infiniteList) { (infiniteList.size / 2) - ((infiniteList.size / 2) % items.size) }
+
+  LaunchedEffect(startIndex) {
+    listState.scrollToItem(startIndex)
+  }
+
+  // Ultra-smooth 60fps hardware-synchronized auto scroll loop
+  LaunchedEffect(items, moveRight) {
+    val scrollStep = if (moveRight) 0.85f else -0.85f
+    while (true) {
+      androidx.compose.runtime.withFrameMillis {
+        // Only auto-scroll when user is not manually touching/dragging
+        if (!listState.isScrollInProgress) {
+          // If nearing the edges, seamlessly reset to center
+          val currentItem = listState.firstVisibleItemIndex
+          if (currentItem < 5 || currentItem > infiniteList.size - 10) {
+            val centerOffset = (infiniteList.size / 2) - ((infiniteList.size / 2) % items.size)
+            kotlinx.coroutines.runBlocking {
+              listState.scrollToItem(centerOffset, listState.firstVisibleItemScrollOffset)
+            }
+          }
+        }
+      }
+      if (!listState.isScrollInProgress) {
+        listState.scrollBy(scrollStep)
+      }
+    }
+  }
+
+  LazyRow(
+    state = listState,
+    contentPadding = PaddingValues(horizontal = 4.dp),
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    userScrollEnabled = true,
+    modifier = modifier.fillMaxWidth()
+  ) {
+    items(
+      count = infiniteList.size,
+      key = { index -> "auto_row_${if (moveRight) "r" else "l"}_${infiniteList[index].id}_$index" }
+    ) { index ->
+      val item = infiniteList[index]
+      MediaCard(
+        mediaItem = item,
+        onClick = { onMediaClick(item) },
+        cardWidth = 92, // Small, compact thumbnail size
+        showMetaInfo = false,
+        isBookmarked = isBookmarked(item.id),
+        onBookmarkClick = { onToggleMyList(item) }
+      )
     }
   }
 }

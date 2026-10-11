@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.PlayArrow
@@ -82,7 +81,8 @@ fun ServerSelectionBottomSheet(
   onRetry: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
-  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  // Allow half-screen partial expansion on initial open, expanding to full screen on upward scroll/drag
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -106,52 +106,32 @@ fun ServerSelectionBottomSheet(
         .padding(horizontal = 18.dp)
         .padding(bottom = 32.dp)
     ) {
-      // 1. Header with Title, Media Metadata, and Close Button
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+      // 1. Header with Title and Media Metadata (Close X button removed; swipe down / back / tap outside dismisses)
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(bottom = 2.dp)
       ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "Select Streaming Server",
-            color = CinemaWhite,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.2).sp
-          )
-          val subtitle = if (!episodeTitle.isNullOrBlank()) {
-            "${mediaItem.title} • $episodeTitle"
-          } else {
-            "${mediaItem.title} (${mediaItem.releaseYear}) • ${mediaItem.duration}"
-          }
-          Text(
-            text = subtitle,
-            color = TextMuted,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 2.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-          )
+        Text(
+          text = "Select Streaming Server",
+          color = CinemaWhite,
+          fontSize = 17.sp,
+          fontWeight = FontWeight.Bold,
+          letterSpacing = (-0.2).sp
+        )
+        val subtitle = if (!episodeTitle.isNullOrBlank()) {
+          "${mediaItem.title} • $episodeTitle"
+        } else {
+          "${mediaItem.title} (${mediaItem.releaseYear}) • ${mediaItem.duration}"
         }
-
-        IconButton(
-          onClick = onDismiss,
-          modifier = Modifier
-            .size(32.dp)
-            .neumorphicDepth(
-              shape = CircleShape,
-              elevation = 1.dp,
-              baseColor = Color(0xFF141924)
-            )
-        ) {
-          Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Close",
-            tint = TextMuted,
-            modifier = Modifier.size(16.dp)
-          )
-        }
+        Text(
+          text = subtitle,
+          color = TextMuted,
+          fontSize = 12.sp,
+          modifier = Modifier.padding(top = 2.dp),
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
+        )
       }
 
       Spacer(modifier = Modifier.height(14.dp))
