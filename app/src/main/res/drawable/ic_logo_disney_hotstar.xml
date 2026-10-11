@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Deep Royal Navy Background -->
+    <path
+        android:fillColor="#0C2044"
+        android:pathData="M24,2 C36.15,2 46,11.85 46,24 C46,36.15 36.15,46 24,46 C11.85,46 2,36.15 2,24 C2,11.85 11.85,2 24,2 Z" />
+    <!-- Disney Arch swoosh -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M10,34 C12,18 22,10 36,12" />
+    <!-- "D" symbol and Plus -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M16,16 L23,16 C28,16 31,19 31,24 C31,29 28,32 23,32 L16,32 Z M20,20 L20,28 L23,28 C25.5,28 27,26.5 27,24 C27,21.5 25.5,20 23,20 Z" />
+    <!-- Hotstar Golden Star -->
+    <path
+        android:fillColor="#FFCC00"
+        android:pathData="M37,20 L38.5,24 L42.5,24 L39,26.5 L40.5,30.5 L37,28 L33.5,30.5 L35,26.5 L31.5,24 L35.5,24 Z" />
+</vector>

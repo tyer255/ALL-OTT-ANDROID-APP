@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Golden Ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="3.5"
+        android:pathData="M 54,24 A 30,30 0 1 1 53.99,24 Z" />
+
+    <!-- Stylized Play Glyphs / Cinema Reel -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M48,40 L68,54 L48,68 Z" />
+
+    <!-- Accent dots -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M 54,16 A 2.5,2.5 0 1 1 53.99,16 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M 54,92 A 2.5,2.5 0 1 1 53.99,92 Z" />
+</vector>

@@ -1,0 +1,8 @@
+{
+  "name": "All OTT",
+  "description": "Cinematic OTT streaming experience with curated blockbusters, series, responsive search, rich episode guides, and playback mockup.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
