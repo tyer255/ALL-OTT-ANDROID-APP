@@ -172,7 +172,7 @@ fun AetherStreamApp(
           serverId = uiState.playbackState.serverId,
           serverName = uiState.playbackState.serverName,
           onBackClick = { viewModel.navigateBack() },
-          onRetryOrSwitchServer = if (media != null) { { viewModel.preparePlayback(media) } } else null
+          onRetryOrSwitchServer = if (media != null) { { viewModel.openServerSelection(media) } } else null
         )
       }
 

@@ -347,6 +347,14 @@ fun PlayerScreen(
 
     onDispose {
       com.example.data.util.ServerAdBlockerManager.clearState()
+      try {
+        webViewRef?.stopLoading()
+        webViewRef?.loadUrl("about:blank")
+        webViewRef?.clearHistory()
+        webViewRef?.removeAllViews()
+        webViewRef?.destroy()
+        webViewRef = null
+      } catch (_: Exception) {}
       activity?.requestedOrientation = originalOrientation
       if (window != null) {
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -511,6 +519,8 @@ fun PlayerScreen(
               databaseEnabled = true
             }
 
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
             webChromeClient = object : WebChromeClient() {
               override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
                 request?.grant(request.resources)
@@ -588,6 +598,14 @@ fun PlayerScreen(
 
               override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
                 isPageLoading = false
+                try {
+                  (view?.parent as? ViewGroup)?.removeView(view)
+                  view?.stopLoading()
+                  view?.destroy()
+                } catch (_: Exception) {}
+                if (webViewRef == view) {
+                  webViewRef = null
+                }
                 return true
               }
 

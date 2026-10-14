@@ -461,7 +461,13 @@ class AetherViewModel(
 
   // --- Real Server Selection & Playback Resolve ---
 
-  fun preparePlayback(mediaItem: MediaItem, season: Int? = null, episode: Int? = null, episodeTitle: String? = null) {
+  fun preparePlayback(
+    mediaItem: MediaItem,
+    season: Int? = null,
+    episode: Int? = null,
+    episodeTitle: String? = null,
+    autoPlay: Boolean = true
+  ) {
     viewModelScope.launch {
       _uiState.update {
         it.copy(
@@ -470,7 +476,7 @@ class AetherViewModel(
           pendingPlayEpisode = episode,
           pendingPlayEpisodeTitle = episodeTitle,
           isResolvingPlayback = true,
-          showServerSelection = true
+          showServerSelection = !autoPlay
         )
       }
 
@@ -484,7 +490,33 @@ class AetherViewModel(
           isResolvingPlayback = false
         )
       }
+
+      if (autoPlay) {
+        val defaultServer = servers.firstOrNull() ?: ServerItem(
+          id = "srv_tgvid",
+          name = "Server 1 (TGVid Stream)",
+          type = "embed",
+          quality = "1080p FHD",
+          language = "Multi-Audio (Hindi/Eng)",
+          url = com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", mediaItem.id, type == "tv", season ?: 1, episode ?: 1),
+          securePlayerUrl = null,
+          available = true,
+          priority = 1
+        )
+        selectServerAndPlay(defaultServer)
+      }
     }
+  }
+
+  fun openServerSelection(mediaItem: MediaItem? = null) {
+    val media = mediaItem ?: _uiState.value.pendingPlayMedia ?: _uiState.value.selectedDetailMedia ?: return
+    preparePlayback(
+      mediaItem = media,
+      season = _uiState.value.pendingPlaySeason,
+      episode = _uiState.value.pendingPlayEpisode,
+      episodeTitle = _uiState.value.pendingPlayEpisodeTitle,
+      autoPlay = false
+    )
   }
 
   fun selectServerAndPlay(server: ServerItem) {

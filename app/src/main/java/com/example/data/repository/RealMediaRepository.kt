@@ -474,24 +474,24 @@ class RealMediaRepository(
       }
 
       val rawServers = if (response.success && response.data != null) {
-        val vidstuckItem = ServerItem(
-          id = "srv_1",
-          name = "Server 1 (VidStuck Stream)",
-          type = "embed",
-          quality = "1080p FHD",
-          language = "Multi-Audio (Hindi/Eng)",
-          url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e),
-          securePlayerUrl = null,
-          available = true,
-          priority = 1
-        )
         val tgvidItem = ServerItem(
           id = "srv_tgvid",
-          name = "Server 2 (TGVid Stream)",
+          name = "Server 1 (TGVid Stream)",
           type = "embed",
           quality = "1080p FHD",
           language = "Multi-Audio (Hindi/Eng)",
           url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e),
+          securePlayerUrl = null,
+          available = true,
+          priority = 1
+        )
+        val vidstuckItem = ServerItem(
+          id = "srv_1",
+          name = "Server 2 (VidStuck Stream)",
+          type = "embed",
+          quality = "1080p FHD",
+          language = "Multi-Audio (Hindi/Eng)",
+          url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e),
           securePlayerUrl = null,
           available = true,
           priority = 2
@@ -512,14 +512,14 @@ class RealMediaRepository(
             priority = srv.priority
           )
         }
-        listOf(vidstuckItem, tgvidItem) + apiItems
+        listOf(tgvidItem, vidstuckItem) + apiItems
       } else {
         emptyList()
       }
 
       val fallbackDefaults = listOf(
-        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
-        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
+        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
+        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
         ServerItem(id = "srv_proxy", name = "Ultra Proxy Fast", type = "embed", quality = "1080p FHD", language = "Cloudflare Worker Proxy", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_2", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3),
         ServerItem(id = "srv_vidsrc", name = "VidSrc Pro Multi", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_3", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 4),
         ServerItem(id = "srv_vidsrcicu", name = "VidSrc SU Global", type = "embed", quality = "1080p HD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_4", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 5),
@@ -534,8 +534,8 @@ class RealMediaRepository(
     } catch (err: Exception) {
       Log.e(tag, "Error getting servers for $cleanId ($type)", err)
       val fallbackDefaults = listOf(
-        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
-        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
+        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
+        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
         ServerItem(id = "srv_vidsrc", name = "VidSrc Pro Multi", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_3", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3),
         ServerItem(id = "srv_videasy", name = "Videasy HD", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_6", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 4)
       )
@@ -647,13 +647,13 @@ class RealMediaRepository(
 
     val fallbackUrl = MediaEnrichmentRegistry.constructDirectServerUrl(serverId, cleanId, isTv, s, e)
 
-    // If serverId is srv_1 or srv_vidstuck, serve genuine VidStuck Stream embed URL directly!
-    if (serverId == "srv_1" || serverId == "srv_vidstuck") {
+    // If serverId is srv_tgvid, serve genuine TGVid Stream embed URL directly!
+    if (serverId == "srv_tgvid") {
       return PlaybackResolved(
         contentId = cleanId,
         type = apiType,
-        serverId = serverId,
-        serverName = "Server 1 (VidStuck Stream)",
+        serverId = "srv_tgvid",
+        serverName = "Server 1 (TGVid Stream)",
         streamUrl = fallbackUrl,
         securePlayerUrl = fallbackUrl,
         quality = "1080p FHD",
@@ -664,13 +664,13 @@ class RealMediaRepository(
       )
     }
 
-    // If serverId is srv_tgvid, serve genuine TGVid Stream embed URL directly!
-    if (serverId == "srv_tgvid") {
+    // If serverId is srv_1 or srv_vidstuck, serve genuine VidStuck Stream embed URL directly!
+    if (serverId == "srv_1" || serverId == "srv_vidstuck") {
       return PlaybackResolved(
         contentId = cleanId,
         type = apiType,
-        serverId = "srv_tgvid",
-        serverName = "Server 2 (TGVid Stream)",
+        serverId = serverId,
+        serverName = "Server 2 (VidStuck Stream)",
         streamUrl = fallbackUrl,
         securePlayerUrl = fallbackUrl,
         quality = "1080p FHD",
@@ -754,8 +754,8 @@ class RealMediaRepository(
     val canonical = getCanonicalProviderKey(serverId, clean, null)
     val provider = cleanProviderDisplayName(canonical, clean)
     val number = when (serverId.lowercase().trim()) {
-      "srv_1", "srv_vidstuck" -> 1
-      "srv_tgvid" -> 2
+      "srv_tgvid" -> 1
+      "srv_1", "srv_vidstuck" -> 2
       "srv_2", "srv_proxy" -> 3
       "srv_3", "srv_vidsrc" -> 4
       "srv_4", "srv_vidsrcicu" -> 5
