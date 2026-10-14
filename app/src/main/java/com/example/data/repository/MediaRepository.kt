@@ -25,6 +25,8 @@ interface MediaRepository {
   suspend fun getMediaDetails(id: String, type: String? = null): MediaItem?
   suspend fun getSeasonEpisodes(seriesId: String, seasonNumber: Int): List<Episode>
   suspend fun searchReal(query: String, type: String? = null): List<MediaItem>
+  fun getSearchFromCache(query: String, type: String? = null): List<MediaItem>? = null
+  fun clearSearchCache() {}
   suspend fun getServers(contentId: String, type: String, season: Int? = null, episode: Int? = null, tmdbId: Int? = null, title: String? = null): List<ServerItem>
   suspend fun resolvePlayback(contentId: String, type: String, serverId: String, season: Int? = null, episode: Int? = null, tmdbId: Int? = null, title: String? = null): PlaybackResolved?
   suspend fun getLiveTvChannels(): List<com.example.data.model.LiveTvChannel> = emptyList()
@@ -42,5 +44,18 @@ interface MediaRepository {
   fun getWatchHistory(): List<MediaItem>
   fun recordWatchProgress(mediaItem: MediaItem, progressPercent: Float = 0.35f)
   fun removeFromContinueWatching(mediaId: String) {}
+
+  fun getStreamOnWifiOnly(): Boolean = true
+  fun setStreamOnWifiOnly(enabled: Boolean) {}
+  fun getEnableDolbyAudio(): Boolean = true
+  fun setEnableDolbyAudio(enabled: Boolean) {}
+  fun getDownloadQualityHigh(): Boolean = true
+  fun setDownloadQualityHigh(enabled: Boolean) {}
+  fun getStreamingBitrate(): Float = 8.5f
+  fun setStreamingBitrate(bitrate: Float) {}
+  fun getSpatialAudioDepth(): Float = 0.70f
+  fun setSpatialAudioDepth(depth: Float) {}
+  fun getDownloadStorageQuota(): Float = 20f
+  fun setDownloadStorageQuota(quota: Float) {}
 }
 

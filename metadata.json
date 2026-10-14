@@ -1,8 +1,6 @@
 {
   "name": "All OTT",
-  "description": "Cinematic OTT streaming experience with curated blockbusters, series, responsive search, rich episode guides, and playback mockup.",
+  "description": "Unified streaming hub for movies, TV series, anime, and live channels with premium player controls and multiple streaming servers.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

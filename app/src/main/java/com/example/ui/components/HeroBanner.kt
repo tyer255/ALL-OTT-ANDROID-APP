@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,20 +47,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.example.data.model.MediaItem
 import com.example.ui.theme.CinemaWhite
 import com.example.ui.theme.NetflixBlack
 import com.example.ui.theme.TextMuted
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @Composable
 fun HeroBanner(
@@ -76,7 +78,9 @@ fun HeroBanner(
 
   var activeIndex by remember { mutableIntStateOf(currentIndex.coerceIn(0, items.size - 1)) }
   val scope = rememberCoroutineScope()
-  val dragOffset = remember { Animatable(0f) }
+  val animOffset = remember { Animatable(0f) }
+  var dragOffsetPx by remember { mutableFloatStateOf(0f) }
+  var isDragging by remember { mutableStateOf(false) }
 
   LaunchedEffect(currentIndex) {
     if (currentIndex != activeIndex && currentIndex in items.indices) {
@@ -91,6 +95,32 @@ fun HeroBanner(
   val thirdIndex = (activeIndex + 2) % items.size
   val thirdItem = items[thirdIndex]
 
+  val context = LocalContext.current
+  val frontImageRequest = remember(frontItem.posterUrl) {
+    ImageRequest.Builder(context)
+      .data(frontItem.posterUrl)
+      .crossfade(100)
+      .memoryCachePolicy(CachePolicy.ENABLED)
+      .diskCachePolicy(CachePolicy.ENABLED)
+      .build()
+  }
+  val secondImageRequest = remember(secondItem.posterUrl) {
+    ImageRequest.Builder(context)
+      .data(secondItem.posterUrl)
+      .crossfade(100)
+      .memoryCachePolicy(CachePolicy.ENABLED)
+      .diskCachePolicy(CachePolicy.ENABLED)
+      .build()
+  }
+  val thirdImageRequest = remember(thirdItem.posterUrl) {
+    ImageRequest.Builder(context)
+      .data(thirdItem.posterUrl)
+      .crossfade(100)
+      .memoryCachePolicy(CachePolicy.ENABLED)
+      .diskCachePolicy(CachePolicy.ENABLED)
+      .build()
+  }
+
   Column(
     modifier = modifier
       .fillMaxWidth()
@@ -103,33 +133,51 @@ fun HeroBanner(
         .fillMaxWidth()
         .height(490.dp)
         .padding(start = 14.dp, end = 14.dp)
-        .pointerInput(activeIndex) {
+        .pointerInput(Unit) {
           detectHorizontalDragGestures(
+            onDragStart = {
+              isDragging = true
+              dragOffsetPx = animOffset.value
+            },
+            onDragCancel = {
+              isDragging = false
+              scope.launch {
+                animOffset.snapTo(dragOffsetPx)
+                animOffset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                dragOffsetPx = 0f
+              }
+            },
             onDragEnd = {
+              isDragging = false
               scope.launch {
                 val threshold = 120f
-                if (dragOffset.value < -threshold) {
+                animOffset.snapTo(dragOffsetPx)
+                if (dragOffsetPx < -threshold) {
                   // Swiped left -> animate out and advance to next page
-                  dragOffset.animateTo(-600f, tween(180))
-                  activeIndex = (activeIndex + 1) % items.size
-                  onIndexSelect(activeIndex)
-                  dragOffset.snapTo(0f)
-                } else if (dragOffset.value > threshold) {
+                  animOffset.animateTo(-600f, tween(160))
+                  val nextIdx = (activeIndex + 1) % items.size
+                  activeIndex = nextIdx
+                  onIndexSelect(nextIdx)
+                  animOffset.snapTo(0f)
+                  dragOffsetPx = 0f
+                } else if (dragOffsetPx > threshold) {
                   // Swiped right -> go to previous page
-                  dragOffset.animateTo(600f, tween(180))
-                  activeIndex = if (activeIndex > 0) activeIndex - 1 else items.size - 1
-                  onIndexSelect(activeIndex)
-                  dragOffset.snapTo(0f)
+                  animOffset.animateTo(600f, tween(160))
+                  val prevIdx = if (activeIndex > 0) activeIndex - 1 else items.size - 1
+                  activeIndex = prevIdx
+                  onIndexSelect(prevIdx)
+                  animOffset.snapTo(0f)
+                  dragOffsetPx = 0f
                 } else {
                   // Return back to center
-                  dragOffset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                  animOffset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                  dragOffsetPx = 0f
                 }
               }
             },
             onHorizontalDrag = { _, dragAmount ->
-              scope.launch {
-                dragOffset.snapTo(dragOffset.value + dragAmount)
-              }
+              // Synchronous float update: zero coroutines launched during gesture tracking
+              dragOffsetPx += dragAmount
             }
           )
         }
@@ -153,13 +201,15 @@ fun HeroBanner(
           .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(26.dp))
           .clickable {
             scope.launch {
+              animOffset.snapTo(0f)
+              dragOffsetPx = 0f
               activeIndex = thirdIndex
               onIndexSelect(thirdIndex)
             }
           }
       ) {
         AsyncImage(
-          model = thirdItem.posterUrl,
+          model = thirdImageRequest,
           contentDescription = null,
           contentScale = ContentScale.Crop,
           modifier = Modifier.fillMaxSize()
@@ -190,13 +240,15 @@ fun HeroBanner(
           .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
           .clickable {
             scope.launch {
+              animOffset.snapTo(0f)
+              dragOffsetPx = 0f
               activeIndex = secondIndex
               onIndexSelect(secondIndex)
             }
           }
       ) {
         AsyncImage(
-          model = secondItem.posterUrl,
+          model = secondImageRequest,
           contentDescription = null,
           contentScale = ContentScale.Crop,
           modifier = Modifier.fillMaxSize()
@@ -210,12 +262,15 @@ fun HeroBanner(
 
       // ----------------------------------------------------
       // PAGE 1 (Front Active Card - Fully interactive)
+      // Hardware-accelerated graphicsLayer translation: bypasses relayout/recomposition
       // ----------------------------------------------------
       Box(
         modifier = Modifier
           .fillMaxSize()
           .padding(end = 36.dp) // Reserves breathing room so pages behind peek on the right edge!
-          .offset { IntOffset(dragOffset.value.roundToInt(), 0) }
+          .graphicsLayer {
+            translationX = if (isDragging) dragOffsetPx else animOffset.value
+          }
           .zIndex(3f)
           .shadow(16.dp, RoundedCornerShape(26.dp))
           .clip(RoundedCornerShape(26.dp))
@@ -235,7 +290,7 @@ fun HeroBanner(
       ) {
         // Poster image
         AsyncImage(
-          model = frontItem.posterUrl,
+          model = frontImageRequest,
           contentDescription = frontItem.title,
           contentScale = ContentScale.Crop,
           modifier = Modifier.fillMaxSize()
@@ -488,8 +543,12 @@ fun HeroBanner(
             .clip(CircleShape)
             .background(if (isSelected) Color(0xFF00D9F5) else Color(0x33FFFFFF))
             .clickable {
-              activeIndex = idx
-              onIndexSelect(idx)
+              scope.launch {
+                animOffset.snapTo(0f)
+                dragOffsetPx = 0f
+                activeIndex = idx
+                onIndexSelect(idx)
+              }
             }
         )
       }

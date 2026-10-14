@@ -61,6 +61,11 @@ import com.example.ui.theme.TextMuted
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+// Static cached placeholder brush to avoid per-card brush re-allocations
+private val CardPlaceholderBrush = Brush.verticalGradient(
+  listOf(Color(0xFF1E2638), Color(0xFF121722))
+)
+
 @Composable
 fun MediaCard(
   mediaItem: MediaItem,
@@ -77,12 +82,12 @@ fun MediaCard(
   val isPressed by interactionSource.collectIsPressedAsState()
   var imageLoadFailed by remember { mutableStateOf(false) }
 
-  // Smooth entrance animation - instant if staggerIndex is 0 for scrolling performance
-  val animAlpha = remember { Animatable(if (staggerIndex > 0) 0f else 1f) }
-  val animScale = remember { Animatable(if (staggerIndex > 0) 0.95f else 1f) }
-  val animSlideX = remember { Animatable(if (staggerIndex > 0) 15f else 0f) }
+  // Smooth entrance animation only if staggerIndex > 0; instant rendering for high-performance scrolling
+  val animAlpha = remember(staggerIndex) { if (staggerIndex > 0) Animatable(0f) else null }
+  val animScale = remember(staggerIndex) { if (staggerIndex > 0) Animatable(0.95f) else null }
+  val animSlideX = remember(staggerIndex) { if (staggerIndex > 0) Animatable(15f) else null }
 
-  if (staggerIndex > 0) {
+  if (staggerIndex > 0 && animAlpha != null && animScale != null && animSlideX != null) {
     LaunchedEffect(mediaItem.id) {
       val delayMs = (staggerIndex.coerceAtMost(5) * 25).toLong()
       delay(delayMs)
@@ -103,10 +108,10 @@ fun MediaCard(
         .fillMaxWidth()
         .aspectRatio(2f / 3f)
         .graphicsLayer {
-          alpha = animAlpha.value
-          scaleX = animScale.value * pressScale
-          scaleY = animScale.value * pressScale
-          translationX = animSlideX.value
+          alpha = animAlpha?.value ?: 1f
+          scaleX = (animScale?.value ?: 1f) * pressScale
+          scaleY = (animScale?.value ?: 1f) * pressScale
+          translationX = animSlideX?.value ?: 0f
         }
         .clip(RoundedCornerShape(8.dp))
         .background(NetflixCardSurface)
@@ -122,11 +127,7 @@ fun MediaCard(
       Box(
         modifier = Modifier
           .fillMaxSize()
-          .background(
-            Brush.verticalGradient(
-              listOf(Color(0xFF1E2638), Color(0xFF121722))
-            )
-          ),
+          .background(CardPlaceholderBrush),
         contentAlignment = Alignment.Center
       ) {
         Column(
@@ -154,13 +155,17 @@ fun MediaCard(
 
       // Real Poster Image from API with caching and error handling
       if (mediaItem.posterUrl.isNotBlank() && !imageLoadFailed) {
-        AsyncImage(
-          model = ImageRequest.Builder(LocalContext.current)
+        val context = LocalContext.current
+        val imageRequest = remember(mediaItem.posterUrl) {
+          ImageRequest.Builder(context)
             .data(mediaItem.posterUrl)
-            .crossfade(true)
+            .crossfade(100)
             .diskCachePolicy(CachePolicy.ENABLED)
             .memoryCachePolicy(CachePolicy.ENABLED)
-            .build(),
+            .build()
+        }
+        AsyncImage(
+          model = imageRequest,
           contentDescription = mediaItem.title,
           contentScale = ContentScale.Crop,
           onError = { imageLoadFailed = true },

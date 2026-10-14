@@ -1,23 +1,8 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
-    <!-- Apple Leaf -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M26,11 C28,8 27.5,6 27.5,6 C27.5,6 25,6.5 23.5,8.5 C22,10.5 22.5,12.5 22.5,12.5 C22.5,12.5 24.5,12.5 26,11 Z" />
-    <!-- Apple Body -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M28,21 C28,18 30.5,16.5 30.5,16.5 C29,14.5 26.5,14.5 25.5,14.5 C23.5,14.5 22,15.5 21,15.5 C20,15.5 18.5,14.5 17,14.5 C14.5,14.5 12,16 11,18.5 C9,22.5 10.5,28 12.5,31 C13.5,32.5 14.5,34 16,34 C17.5,34 18,33 19.5,33 C21,33 21.5,34 23,34 C24.5,34 25.5,32.5 26.5,31 C27.5,29.5 28,28 28,28 C28,28 25.5,27 25.5,24 C25.5,21.5 28,21 28,21 Z" />
-    <!-- "tv+" text shape -->
-    <!-- 't' -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,18 L34,18 L34,15 L36,15 L36,18 L38,18 L38,20 L36,20 L36,29 C36,30.5 37,31 38,31 L38,33 C36,33 34,32 34,30 L34,20 L32,20 Z" />
-    <!-- '+' -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M40,22 L42,22 L42,20 L44,20 L44,22 L46,22 L46,24 L44,24 L44,26 L42,26 L42,24 L40,24 Z" />
+<?xml version="1.0" encoding="utf-8"?>
+<vector android:height="48.0dip" android:width="48.0dip" android:viewportWidth="48.0" android:viewportHeight="48.0"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="#ffffffff" android:pathData="M26,11 C28,8 27.5,6 27.5,6 C27.5,6 25,6.5 23.5,8.5 C22,10.5 22.5,12.5 22.5,12.5 C22.5,12.5 24.5,12.5 26,11 Z" />
+    <path android:fillColor="#ffffffff" android:pathData="M28,21 C28,18 30.5,16.5 30.5,16.5 C29,14.5 26.5,14.5 25.5,14.5 C23.5,14.5 22,15.5 21,15.5 C20,15.5 18.5,14.5 17,14.5 C14.5,14.5 12,16 11,18.5 C9,22.5 10.5,28 12.5,31 C13.5,32.5 14.5,34 16,34 C17.5,34 18,33 19.5,33 C21,33 21.5,34 23,34 C24.5,34 25.5,32.5 26.5,31 C27.5,29.5 28,28 28,28 C28,28 25.5,27 25.5,24 C25.5,21.5 28,21 28,21 Z" />
+    <path android:fillColor="#ffffffff" android:pathData="M32,18 L34,18 L34,15 L36,15 L36,18 L38,18 L38,20 L36,20 L36,29 C36,30.5 37,31 38,31 L38,33 C36,33 34,32 34,30 L34,20 L32,20 Z" />
+    <path android:fillColor="#ffffffff" android:pathData="M40,22 L42,22 L42,20 L44,20 L44,22 L46,22 L46,24 L44,24 L44,26 L42,26 L42,24 L40,24 Z" />
 </vector>

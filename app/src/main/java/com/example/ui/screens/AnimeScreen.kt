@@ -239,25 +239,13 @@ fun AnimeScreen(
           ) {
             items(genreOptions) { genre ->
               val isSelected = selectedGenre == genre
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(20.dp))
-                  .background(if (isSelected) Color(0xFFF47521) else Color(0x1AFFFFFF))
-                  .border(
-                    width = 1.dp,
-                    color = if (isSelected) Color(0xFFF47521) else Color(0x26FFFFFF),
-                    shape = RoundedCornerShape(20.dp)
-                  )
-                  .clickable { selectedGenre = genre }
-                  .padding(horizontal = 14.dp, vertical = 6.dp)
-              ) {
-                Text(
-                  text = genre,
-                  color = if (isSelected) CinemaWhite else TextMuted,
-                  fontSize = 12.sp,
-                  fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                )
-              }
+              com.example.ui.theme.ModernFilterChip(
+                selected = isSelected,
+                onClick = { selectedGenre = genre },
+                label = genre,
+                activeColor = Color(0xFFF47521),
+                activeTextColor = CinemaWhite
+              )
             }
           }
         }
@@ -389,12 +377,12 @@ private fun AnimeSectionRow(
       contentPadding = PaddingValues(horizontal = 16.dp),
       horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-      itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+      items(items, key = { it.id }) { item ->
         MediaCard(
           mediaItem = item,
           onClick = { onMediaClick(item) },
           cardWidth = 124,
-          staggerIndex = index,
+          staggerIndex = 0,
           showTopTenBadge = false,
           showMetaInfo = true,
           isBookmarked = isBookmarked(item.id),

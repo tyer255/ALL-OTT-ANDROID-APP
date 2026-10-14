@@ -271,6 +271,7 @@ fun PlayerScreen(
   mediaTitle: String,
   subtitle: String? = null,
   streamUrl: String?,
+  serverId: String? = null,
   serverName: String? = null,
   onBackClick: () -> Unit,
   onRetryOrSwitchServer: (() -> Unit)? = null,
@@ -285,6 +286,11 @@ fun PlayerScreen(
   var isPageLoading by remember { mutableStateOf(true) }
   var isControlsVisible by remember { mutableStateOf(true) }
   var touchResetTrigger by remember { mutableStateOf(0L) }
+
+  // Configure centralized automatic server-specific ad blocker
+  val isAdBlockerActive = remember(serverId, serverName, streamUrl) {
+    com.example.data.util.ServerAdBlockerManager.configureForServer(serverId, serverName, streamUrl).isAdBlockerEnabled
+  }
 
   // Immediately apply aspect-ratio fit mode changes dynamically to active WebView
   LaunchedEffect(fitMode) {
@@ -340,6 +346,7 @@ fun PlayerScreen(
     }
 
     onDispose {
+      com.example.data.util.ServerAdBlockerManager.clearState()
       activity?.requestedOrientation = originalOrientation
       if (window != null) {
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -494,7 +501,7 @@ fun PlayerScreen(
               loadWithOverviewMode = true
               useWideViewPort = true
               textZoom = 100
-              javaScriptCanOpenWindowsAutomatically = true
+              javaScriptCanOpenWindowsAutomatically = !isAdBlockerActive
               mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
               allowFileAccess = true
               allowContentAccess = true
@@ -513,6 +520,19 @@ fun PlayerScreen(
                 super.onProgressChanged(view, newProgress)
                 if (newProgress >= 70) {
                   isPageLoading = false
+                }
+              }
+
+              override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+              ): Boolean {
+                return if (isAdBlockerActive) {
+                  false
+                } else {
+                  super.onCreateWindow(view, isDialog, isUserGesture, resultMsg)
                 }
               }
 
@@ -535,15 +555,35 @@ fun PlayerScreen(
             }
 
             webViewClient = object : WebViewClient() {
+              override fun shouldInterceptRequest(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?
+              ): android.webkit.WebResourceResponse? {
+                return com.example.data.util.ServerAdBlockerManager.shouldInterceptRequest(view, request, isAdBlockerActive)
+              }
+
+              override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?
+              ): Boolean {
+                return com.example.data.util.ServerAdBlockerManager.shouldOverrideUrlLoading(view, request, isAdBlockerActive)
+              }
+
               override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 view?.evaluateJavascript(getFitInjectionScript(fitMode), null)
+                if (isAdBlockerActive) {
+                  view?.evaluateJavascript(com.example.data.util.ServerAdBlockerManager.getAdBlockScript(true), null)
+                }
               }
 
               override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 isPageLoading = false
                 view?.evaluateJavascript(getFitInjectionScript(fitMode), null)
+                if (isAdBlockerActive) {
+                  view?.evaluateJavascript(com.example.data.util.ServerAdBlockerManager.getAdBlockScript(true), null)
+                }
               }
 
               override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
@@ -569,6 +609,7 @@ fun PlayerScreen(
         update = { webView ->
           webViewRef = webView
           if (webView.url != streamUrl && !streamUrl.isNullOrBlank()) {
+            webView.settings.javaScriptCanOpenWindowsAutomatically = !isAdBlockerActive
             webView.loadUrl(streamUrl)
           }
         },
@@ -613,205 +654,203 @@ fun PlayerScreen(
         }
       }
 
-      // 5. Floating Top Bar with Back, Title, Server Badge & Screen Rotation Toggle (Attached to Top Edge)
+      // 5. Floating Top Bar & Bottom Playback Controls Overlay
       AnimatedVisibility(
         visible = customView == null && isControlsVisible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = Modifier
-          .fillMaxWidth()
-          .align(Alignment.TopCenter)
+        modifier = Modifier.fillMaxSize()
       ) {
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 0.dp)
-        ) {
-          Row(
+        Box(modifier = Modifier.fillMaxSize()) {
+          // TOP FLOATING GLASS BAR
+          Box(
             modifier = Modifier
               .fillMaxWidth()
-              .liquidGlassSurface(
-                shape = RoundedCornerShape(14.dp),
-                elevation = 4.dp,
-                backgroundColor = Color(0xCC0D1017),
-                borderColor = GlassTokens.BorderHighlight
-              )
-              .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+              .align(Alignment.TopCenter)
+              .padding(start = 12.dp, top = 6.dp, end = 12.dp)
           ) {
             Row(
-              verticalAlignment = Alignment.CenterVertically,
-              modifier = Modifier.weight(1f)
+              modifier = Modifier
+                .fillMaxWidth()
+                .liquidGlassSurface(
+                  shape = RoundedCornerShape(16.dp),
+                  elevation = 6.dp,
+                  backgroundColor = Color(0xD90A0D14),
+                  borderColor = GlassTokens.BorderHighlight
+                )
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              IconButton(
-                onClick = {
-                  showControlsAndResetTimer()
-                  onBackClick()
-                },
-                modifier = Modifier
-                  .size(34.dp)
-                  .neumorphicDepth(shape = CircleShape, elevation = 1.dp, baseColor = Color(0xFF161B24))
-                  .testTag("player_back_button")
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
               ) {
-                Icon(
-                  imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                  contentDescription = "Exit Player",
-                  tint = WhiteTextPrimary,
-                  modifier = Modifier.size(18.dp)
-                )
-              }
-              Spacer(modifier = Modifier.width(10.dp))
-              Column(modifier = Modifier.weight(1f)) {
-                Text(
-                  text = mediaTitle,
-                  color = WhiteTextPrimary,
-                  fontSize = 13.sp,
-                  fontWeight = FontWeight.Bold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-                if (!subtitle.isNullOrBlank()) {
+                Box(
+                  modifier = Modifier
+                    .size(36.dp)
+                    .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = Color(0xFF161B26))
+                    .clickable {
+                      showControlsAndResetTimer()
+                      onBackClick()
+                    }
+                    .testTag("player_back_button"),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Exit Player",
+                    tint = WhiteTextPrimary,
+                    modifier = Modifier.size(18.dp)
+                  )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
                   Text(
-                    text = subtitle,
-                    color = MutedSlate,
-                    fontSize = 11.sp,
+                    text = mediaTitle,
+                    color = WhiteTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                   )
+                  if (!subtitle.isNullOrBlank()) {
+                    Text(
+                      text = subtitle,
+                      color = MutedSlate,
+                      fontSize = 11.sp,
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis
+                    )
+                  }
                 }
               }
-            }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              // Screen Rotation Toggle Button (Landscape / Portrait)
-              IconButton(
-                onClick = {
-                  showControlsAndResetTimer()
-                  isLandscape = !isLandscape
-                },
-                modifier = Modifier
-                  .size(32.dp)
-                  .clip(CircleShape)
-                  .background(Color(0x33FFFFFF))
-                  .border(0.5.dp, Color(0x66FFFFFF), CircleShape)
-                  .testTag("player_rotate_button")
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
               ) {
-                Icon(
-                  imageVector = Icons.Default.ScreenRotation,
-                  contentDescription = "Rotate Screen Orientation",
-                  tint = CinemaWhite,
-                  modifier = Modifier.size(16.dp)
-                )
-              }
-
-              Spacer(modifier = Modifier.width(8.dp))
-
-              // Video Fit Mode Toggle Button (Fit 16:9 -> Fill -> Stretch)
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(8.dp))
-                  .background(Color(0x26FFFFFF))
-                  .border(0.5.dp, Color(0x4DFFFFFF), RoundedCornerShape(8.dp))
-                  .clickable {
-                    showControlsAndResetTimer()
-                    fitMode = when (fitMode) {
-                      VideoFitMode.FIT -> VideoFitMode.FILL
-                      VideoFitMode.FILL -> VideoFitMode.STRETCH
-                      VideoFitMode.STRETCH -> VideoFitMode.FIT
+                // Screen Rotation Toggle Button
+                Box(
+                  modifier = Modifier
+                    .size(34.dp)
+                    .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = Color(0xFF1B2232))
+                    .clickable {
+                      showControlsAndResetTimer()
+                      isLandscape = !isLandscape
                     }
-                  }
-                  .padding(horizontal = 8.dp, vertical = 4.dp)
-                  .testTag("player_fit_mode_button")
-              ) {
-                Row(
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .testTag("player_rotate_button"),
+                  contentAlignment = Alignment.Center
                 ) {
                   Icon(
-                    imageVector = when (fitMode) {
-                      VideoFitMode.FIT -> Icons.Default.FitScreen
-                      VideoFitMode.FILL -> Icons.Default.CropFree
-                      VideoFitMode.STRETCH -> Icons.Default.AspectRatio
-                    },
-                    contentDescription = "Aspect Ratio Fit Mode",
+                    imageVector = Icons.Default.ScreenRotation,
+                    contentDescription = "Rotate Screen Orientation",
                     tint = CinemaWhite,
-                    modifier = Modifier.size(14.dp)
-                  )
-                  Text(
-                    text = fitMode.label,
-                    color = CinemaWhite,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    modifier = Modifier.size(17.dp)
                   )
                 }
-              }
 
-              Spacer(modifier = Modifier.width(8.dp))
+                // Video Fit Mode Toggle Button
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .neumorphicDepth(shape = RoundedCornerShape(10.dp), elevation = 2.dp, baseColor = Color(0xFF1B2232))
+                    .clickable {
+                      showControlsAndResetTimer()
+                      fitMode = when (fitMode) {
+                        VideoFitMode.FIT -> VideoFitMode.FILL
+                        VideoFitMode.FILL -> VideoFitMode.STRETCH
+                        VideoFitMode.STRETCH -> VideoFitMode.FIT
+                      }
+                    }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .testTag("player_fit_mode_button")
+                ) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                  ) {
+                    Icon(
+                      imageVector = when (fitMode) {
+                        VideoFitMode.FIT -> Icons.Default.FitScreen
+                        VideoFitMode.FILL -> Icons.Default.CropFree
+                        VideoFitMode.STRETCH -> Icons.Default.AspectRatio
+                      },
+                      contentDescription = "Aspect Ratio Fit Mode",
+                      tint = CinemaWhite,
+                      modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                      text = fitMode.label,
+                      color = CinemaWhite,
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.Bold
+                    )
+                  }
+                }
 
-              if (onRetryOrSwitchServer != null) {
+                if (onRetryOrSwitchServer != null) {
+                  Box(
+                    modifier = Modifier
+                      .clip(RoundedCornerShape(10.dp))
+                      .neumorphicDepth(shape = RoundedCornerShape(10.dp), elevation = 2.dp, baseColor = Color(0xFF1B2232))
+                      .clickable {
+                        showControlsAndResetTimer()
+                        onRetryOrSwitchServer()
+                      }
+                      .padding(horizontal = 10.dp, vertical = 6.dp)
+                  ) {
+                    Text(
+                      text = "Servers",
+                      color = CinemaWhite,
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.Bold
+                    )
+                  }
+                }
+
+                // Server Badge Text
+                val isLive = serverName.orEmpty().contains("Live", ignoreCase = true) ||
+                    subtitle.orEmpty().contains("Live", ignoreCase = true)
+
+                val cleanServerName = when {
+                  isLive -> "Live TV"
+                  serverName.orEmpty().contains("VidStuck", ignoreCase = true) -> "Server 1"
+                  serverName.orEmpty().contains("TGVid", ignoreCase = true) -> "Server 2"
+                  serverName.isNullOrBlank() -> "Server 1"
+                  else -> serverName
+                }
+
+                val badgeBgColor = if (isLive) Color(0x33E50914) else Color(0x3300D9F5)
+                val badgeBorderColor = if (isLive) Color(0x80E50914) else Color(0x6600D9F5)
+                val badgeTextColor = if (isLive) Color(0xFFFF5252) else Color(0xFF00D9F5)
+
                 Box(
                   modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0x33FFFFFF))
-                    .border(0.5.dp, Color(0x66FFFFFF), RoundedCornerShape(8.dp))
-                    .clickable {
-                      showControlsAndResetTimer()
-                      onRetryOrSwitchServer()
+                    .background(badgeBgColor)
+                    .border(0.5.dp, badgeBorderColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                ) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                  ) {
+                    if (isLive) {
+                      Box(
+                        modifier = Modifier
+                          .size(6.dp)
+                          .clip(CircleShape)
+                          .background(Color(0xFFE50914))
+                      )
                     }
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                  Text(
-                    text = "Servers",
-                    color = CinemaWhite,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                  )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-              }
-
-              // Server Badge Text (Live TV vs Movies & Shows)
-              val isLive = serverName.orEmpty().contains("Live", ignoreCase = true) ||
-                  subtitle.orEmpty().contains("Live", ignoreCase = true)
-
-              val cleanServerName = when {
-                isLive -> "Live TV"
-                serverName.orEmpty().contains("TGVid", ignoreCase = true) -> "Server 1 (TGVid Stream)"
-                serverName.orEmpty().contains("VidStuck", ignoreCase = true) -> "Server 2 (VidStuck Stream)"
-                serverName.isNullOrBlank() -> "Server 1 (TGVid Stream)"
-                else -> serverName
-              }
-
-              val badgeBgColor = if (isLive) Color(0x33E50914) else Color(0x3300D9F5)
-              val badgeBorderColor = if (isLive) Color(0x80E50914) else Color(0x6600D9F5)
-              val badgeTextColor = if (isLive) Color(0xFFFF5252) else Color(0xFF00D9F5)
-
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(6.dp))
-                  .background(badgeBgColor)
-                  .border(0.5.dp, badgeBorderColor, RoundedCornerShape(6.dp))
-                  .padding(horizontal = 8.dp, vertical = 3.dp)
-              ) {
-                Row(
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                  if (isLive) {
-                    Box(
-                      modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE50914))
+                    Text(
+                      text = cleanServerName,
+                      color = badgeTextColor,
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold
                     )
                   }
-                  Text(
-                    text = cleanServerName,
-                    color = badgeTextColor,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                  )
                 }
               }
             }
@@ -821,3 +860,4 @@ fun PlayerScreen(
     }
   }
 }
+

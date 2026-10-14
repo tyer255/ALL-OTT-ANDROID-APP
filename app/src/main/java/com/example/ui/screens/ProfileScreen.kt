@@ -77,11 +77,20 @@ fun ProfileScreen(
   onOpenMyList: () -> Unit,
   onBackClick: () -> Unit = {},
   onRemoveFromContinueWatching: ((String) -> Unit)? = null,
+  onStreamOnWifiOnlyChange: ((Boolean) -> Unit)? = null,
+  onEnableDolbyAudioChange: ((Boolean) -> Unit)? = null,
+  onDownloadQualityHighChange: ((Boolean) -> Unit)? = null,
+  onStreamingBitrateChange: ((Float) -> Unit)? = null,
+  onSpatialAudioDepthChange: ((Float) -> Unit)? = null,
+  onDownloadStorageQuotaChange: ((Float) -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
-  var streamOnWifiOnly by remember { mutableStateOf(true) }
-  var enableDolbyAudio by remember { mutableStateOf(true) }
-  var downloadQualityHigh by remember { mutableStateOf(true) }
+  val streamOnWifiOnly = uiState.streamOnWifiOnly
+  val enableDolbyAudio = uiState.enableDolbyAudio
+  val downloadQualityHigh = uiState.downloadQualityHigh
+  val streamingBitrate = uiState.streamingBitrate
+  val spatialAudioDepth = uiState.spatialAudioDepth
+  val downloadStorageQuota = uiState.downloadStorageQuota
 
   LazyColumn(
     modifier = modifier
@@ -317,8 +326,49 @@ fun ProfileScreen(
           title = "Stream on Wi-Fi Only",
           subtitle = "Prevent streaming over mobile cellular data",
           checked = streamOnWifiOnly,
-          onCheckedChange = { streamOnWifiOnly = it }
+          onCheckedChange = { onStreamOnWifiOnlyChange?.invoke(it) }
         )
+
+        HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 8.dp))
+
+        // Streaming Bitrate Target Slider
+        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.HighQuality,
+                contentDescription = null,
+                tint = AmberGoldPrimary,
+                modifier = Modifier.size(20.dp)
+              )
+              Spacer(modifier = Modifier.width(12.dp))
+              Column {
+                Text(
+                  text = "Streaming Bitrate Target",
+                  color = WhiteTextPrimary,
+                  fontSize = 13.sp,
+                  fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                  text = "Maximum bandwidth for 4K/FHD streams",
+                  color = MutedSlate,
+                  fontSize = 11.sp
+                )
+              }
+            }
+          }
+          Spacer(modifier = Modifier.height(4.dp))
+          com.example.ui.theme.ModernSlider(
+            value = streamingBitrate,
+            onValueChange = { onStreamingBitrateChange?.invoke(it) },
+            valueRange = 1f..25f,
+            valueFormatter = { "${"%.1f".format(it)} Mbps" }
+          )
+        }
 
         HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 8.dp))
 
@@ -327,8 +377,25 @@ fun ProfileScreen(
           title = "Spatial Audio & Dolby Atmos",
           subtitle = "Render multi-channel cinema surround sound",
           checked = enableDolbyAudio,
-          onCheckedChange = { enableDolbyAudio = it }
+          onCheckedChange = { onEnableDolbyAudioChange?.invoke(it) }
         )
+
+        if (enableDolbyAudio) {
+          Column(modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp)) {
+            Text(
+              text = "Spatial Surround Depth",
+              color = MutedSlate,
+              fontSize = 11.sp,
+              fontWeight = FontWeight.Medium
+            )
+            com.example.ui.theme.ModernSlider(
+              value = spatialAudioDepth,
+              onValueChange = { onSpatialAudioDepthChange?.invoke(it) },
+              valueRange = 0f..1f,
+              valueFormatter = { "${(it * 100).toInt()}% Depth" }
+            )
+          }
+        }
 
         HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 8.dp))
 
@@ -337,8 +404,47 @@ fun ProfileScreen(
           title = "Ultra HD Offline Downloads",
           subtitle = "Save movies in maximum bit-depth",
           checked = downloadQualityHigh,
-          onCheckedChange = { downloadQualityHigh = it }
+          onCheckedChange = { onDownloadQualityHighChange?.invoke(it) }
         )
+
+        // Offline Download Storage Quota Slider
+        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = null,
+                tint = AmberGoldPrimary,
+                modifier = Modifier.size(20.dp)
+              )
+              Spacer(modifier = Modifier.width(12.dp))
+              Column {
+                Text(
+                  text = "Download Storage Limit",
+                  color = WhiteTextPrimary,
+                  fontSize = 13.sp,
+                  fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                  text = "Maximum device storage reserved for offline titles",
+                  color = MutedSlate,
+                  fontSize = 11.sp
+                )
+              }
+            }
+          }
+          Spacer(modifier = Modifier.height(4.dp))
+          com.example.ui.theme.ModernSlider(
+            value = downloadStorageQuota,
+            onValueChange = { onDownloadStorageQuotaChange?.invoke(it) },
+            valueRange = 5f..60f,
+            valueFormatter = { "${it.toInt()} GB" }
+          )
+        }
 
         HorizontalDivider(color = DividerColor, modifier = Modifier.padding(vertical = 8.dp))
 
@@ -400,14 +506,9 @@ fun SettingSwitchRow(
         )
       }
     }
-    Switch(
+    com.example.ui.theme.ModernSwitch(
       checked = checked,
-      onCheckedChange = onCheckedChange,
-      colors = SwitchDefaults.colors(
-        checkedThumbColor = AmberGoldPrimary,
-        checkedTrackColor = DarkSurfaceVariant,
-        uncheckedTrackColor = DarkSurface
-      )
+      onCheckedChange = onCheckedChange
     )
   }
 }

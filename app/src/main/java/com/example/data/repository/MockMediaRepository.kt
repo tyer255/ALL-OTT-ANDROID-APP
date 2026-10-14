@@ -409,8 +409,8 @@ class MockMediaRepository : MediaRepository {
     val s = season ?: 1
     val e = episode ?: 1
     return listOf(
-      com.example.data.model.ServerItem("srv_tgvid", "Server 1 (TGVID Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), null, true, 0),
-      com.example.data.model.ServerItem("srv_1", "Server 2 (VidSrc Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), null, true, 1),
+      com.example.data.model.ServerItem("srv_1", "Server 1 (VidStuck Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), null, true, 0),
+      com.example.data.model.ServerItem("srv_tgvid", "Server 2 (TGVid Stream)", "embed", "1080p FHD", "Multi-Audio (Hindi/Eng)", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), null, true, 1),
       com.example.data.model.ServerItem("srv_2", "Server 3 (Ultra Proxy)", "embed", "1080p FHD", "Cloudflare Worker Proxy", com.example.data.util.MediaEnrichmentRegistry.constructDirectServerUrl("srv_2", cleanId, isTv, s, e), null, true, 2)
     )
   }

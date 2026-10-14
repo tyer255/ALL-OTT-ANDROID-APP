@@ -99,9 +99,11 @@ fun ContinueWatchingCard(
         modifier = Modifier
           .fillMaxSize()
           .background(
-            Brush.verticalGradient(
-              listOf(Color(0xFF1E2638), Color(0xFF121722))
-            )
+            remember {
+              Brush.verticalGradient(
+                listOf(Color(0xFF1E2638), Color(0xFF121722))
+              )
+            }
           ),
         contentAlignment = Alignment.Center
       ) {
@@ -114,13 +116,17 @@ fun ContinueWatchingCard(
       }
 
       if (imageUrl.isNotBlank()) {
-        AsyncImage(
-          model = ImageRequest.Builder(LocalContext.current)
+        val context = LocalContext.current
+        val imageRequest = remember(imageUrl) {
+          ImageRequest.Builder(context)
             .data(imageUrl)
-            .crossfade(true)
+            .crossfade(100)
             .diskCachePolicy(CachePolicy.ENABLED)
             .memoryCachePolicy(CachePolicy.ENABLED)
-            .build(),
+            .build()
+        }
+        AsyncImage(
+          model = imageRequest,
           contentDescription = mediaItem.title,
           contentScale = ContentScale.Crop,
           modifier = Modifier.fillMaxSize()

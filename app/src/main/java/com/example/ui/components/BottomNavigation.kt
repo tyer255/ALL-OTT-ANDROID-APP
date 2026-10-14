@@ -47,6 +47,7 @@ import com.example.ui.theme.CinemaWhite
 import com.example.ui.theme.GlassTokens
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.liquidGlassSurface
+import com.example.ui.theme.neumorphicDepth
 import com.example.ui.viewmodel.Screen
 
 data class ModernNavTab(
@@ -140,9 +141,11 @@ fun AetherBottomNavigation(
             modifier = Modifier
               .height(44.dp)
               .fillMaxWidth(0.86f)
-              .clip(RoundedCornerShape(16.dp))
-              .background(pillBgColor)
-              .border(0.8.dp, pillBorderColor, RoundedCornerShape(16.dp))
+              .neumorphicDepth(
+                shape = RoundedCornerShape(16.dp),
+                elevation = if (isSelected) 3.dp else 0.dp,
+                baseColor = if (isSelected) Color(0x2EFFFFFF) else Color.Transparent
+              )
               .padding(horizontal = 4.dp, vertical = 2.dp),
             contentAlignment = Alignment.Center
           ) {

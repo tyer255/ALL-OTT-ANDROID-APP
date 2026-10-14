@@ -453,17 +453,14 @@ fun DetailScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Primary Button: PLAY TEASER (never treat as playable movie)
-            Button(
-              onClick = { onPlayTeaserClick?.invoke(mediaItem.title) ?: onPlayClick(mediaItem, "Teaser") },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = CinemaWhite,
-                contentColor = Color(0xFF0B0D13)
-              ),
-              shape = RoundedCornerShape(14.dp),
+            Box(
               modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .testTag("detail_play_teaser_button")
+                .neumorphicDepth(shape = RoundedCornerShape(14.dp), elevation = 4.dp, baseColor = CinemaWhite)
+                .clickable { onPlayTeaserClick?.invoke(mediaItem.title) ?: onPlayClick(mediaItem, "Teaser") }
+                .testTag("detail_play_teaser_button"),
+              contentAlignment = Alignment.Center
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -486,17 +483,14 @@ fun DetailScreen(
             }
           } else {
             // Released content: PLAY NOW
-            Button(
-              onClick = { onPlayClick(mediaItem, null) },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = CinemaWhite,
-                contentColor = Color(0xFF0B0D13)
-              ),
-              shape = RoundedCornerShape(14.dp),
+            Box(
               modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .testTag("detail_play_now_button")
+                .neumorphicDepth(shape = RoundedCornerShape(14.dp), elevation = 4.dp, baseColor = CinemaWhite)
+                .clickable { onPlayClick(mediaItem, null) }
+                .testTag("detail_play_now_button"),
+              contentAlignment = Alignment.Center
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -525,9 +519,12 @@ fun DetailScreen(
               modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0x1F232D3F))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
+                .liquidGlassSurface(
+                  shape = RoundedCornerShape(14.dp),
+                  elevation = 2.dp,
+                  backgroundColor = Color(0x33232D3F),
+                  borderColor = GlassTokens.BorderHighlight
+                )
                 .clickable { onPlayTeaserClick?.invoke(mediaItem.title) ?: onPlayClick(mediaItem, "Trailer") }
                 .testTag("detail_watch_trailer_button"),
               contentAlignment = Alignment.Center
@@ -570,14 +567,21 @@ fun DetailScreen(
               horizontalAlignment = Alignment.CenterHorizontally,
               modifier = Modifier
                 .clickable { onToggleMyList(mediaItem) }
-                .padding(8.dp)
+                .padding(4.dp)
             ) {
-              Icon(
-                imageVector = if (isInMyList) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                contentDescription = "My List",
-                tint = if (isInMyList) Color(0xFFF59E0B) else TextMuted,
-                modifier = Modifier.size(24.dp)
-              )
+              Box(
+                modifier = Modifier
+                  .size(42.dp)
+                  .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = if (isInMyList) Color(0x33F59E0B) else Color(0xFF181D2A)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = if (isInMyList) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                  contentDescription = "My List",
+                  tint = if (isInMyList) Color(0xFFF59E0B) else TextMuted,
+                  modifier = Modifier.size(22.dp)
+                )
+              }
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text = "My List",
@@ -592,14 +596,21 @@ fun DetailScreen(
               horizontalAlignment = Alignment.CenterHorizontally,
               modifier = Modifier
                 .clickable { onDownloadClick?.invoke(mediaItem) }
-                .padding(8.dp)
+                .padding(4.dp)
             ) {
-              Icon(
-                imageVector = Icons.Default.Download,
-                contentDescription = "Download",
-                tint = Color(0xFF00D9F5),
-                modifier = Modifier.size(24.dp)
-              )
+              Box(
+                modifier = Modifier
+                  .size(42.dp)
+                  .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = Color(0xFF181D2A)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Download,
+                  contentDescription = "Download",
+                  tint = Color(0xFF00D9F5),
+                  modifier = Modifier.size(22.dp)
+                )
+              }
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text = "Download",
@@ -614,14 +625,21 @@ fun DetailScreen(
               horizontalAlignment = Alignment.CenterHorizontally,
               modifier = Modifier
                 .clickable { /* Share */ }
-                .padding(8.dp)
+                .padding(4.dp)
             ) {
-              Icon(
-                imageVector = Icons.Default.Share,
-                contentDescription = "Share",
-                tint = TextMuted,
-                modifier = Modifier.size(22.dp)
-              )
+              Box(
+                modifier = Modifier
+                  .size(42.dp)
+                  .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = Color(0xFF181D2A)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Share,
+                  contentDescription = "Share",
+                  tint = TextMuted,
+                  modifier = Modifier.size(20.dp)
+                )
+              }
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text = "Share",
@@ -634,14 +652,21 @@ fun DetailScreen(
             // Quality
             Column(
               horizontalAlignment = Alignment.CenterHorizontally,
-              modifier = Modifier.padding(8.dp)
+              modifier = Modifier.padding(4.dp)
             ) {
-              Icon(
-                imageVector = Icons.Default.HighQuality,
-                contentDescription = "Quality",
-                tint = TextMuted,
-                modifier = Modifier.size(24.dp)
-              )
+              Box(
+                modifier = Modifier
+                  .size(42.dp)
+                  .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = Color(0xFF181D2A)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.HighQuality,
+                  contentDescription = "Quality",
+                  tint = TextMuted,
+                  modifier = Modifier.size(22.dp)
+                )
+              }
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text = "1080p",
@@ -785,33 +810,16 @@ fun DetailScreen(
             ) {
               itemsIndexed(displaySeasons) { index, season ->
                 val isSelected = selectedSeasonIndex == index
-                Box(
-                  modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(
-                      if (isSelected) CinemaWhite // Pure White background when selected
-                      else Color(0x1AFFFFFF)
-                    )
-                    .border(
-                      width = 1.dp,
-                      color = if (isSelected) CinemaWhite else Color(0x26FFFFFF),
-                      shape = RoundedCornerShape(20.dp)
-                    )
-                    .clickable {
-                      selectedSeasonIndex = index
-                      onSeasonChange?.invoke(mediaItem.id, season.seasonNumber)
-                    }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("season_tab_$index")
-                ) {
-                  val epCountText = if (season.episodes.isNotEmpty()) " (${season.episodes.size} eps)" else ""
-                  Text(
-                    text = "${season.title}$epCountText",
-                    color = if (isSelected) Color(0xFF0B0D13) else CinemaWhite, // Black text when active
-                    fontSize = 12.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                  )
-                }
+                val epCountText = if (season.episodes.isNotEmpty()) " (${season.episodes.size} eps)" else ""
+                com.example.ui.theme.ModernFilterChip(
+                  selected = isSelected,
+                  onClick = {
+                    selectedSeasonIndex = index
+                    onSeasonChange?.invoke(mediaItem.id, season.seasonNumber)
+                  },
+                  label = "${season.title}$epCountText",
+                  modifier = Modifier.testTag("season_tab_$index")
+                )
               }
             }
 

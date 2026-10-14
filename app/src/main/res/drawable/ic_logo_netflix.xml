@@ -1,23 +1,8 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
-    <!-- Netflix Official Red "N" Ribbon Logo -->
-    <!-- Left vertical bar -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M12,4 L19,4 L19,44 L12,44 Z" />
-    <!-- Diagonal ribbon shadow overlay -->
-    <path
-        android:fillColor="#B81D24"
-        android:pathData="M19,4 L36,44 L29,44 L12,4 Z" />
-    <!-- Diagonal front ribbon -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M19,4 L29,44 L36,44 L26,4 Z" />
-    <!-- Right vertical bar -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M29,4 L36,4 L36,44 L29,44 Z" />
+<?xml version="1.0" encoding="utf-8"?>
+<vector android:height="48.0dip" android:width="48.0dip" android:viewportWidth="48.0" android:viewportHeight="48.0"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="#ffe50914" android:pathData="M12,4 L19,4 L19,44 L12,44 Z" />
+    <path android:fillColor="#ffb81d24" android:pathData="M19,4 L36,44 L29,44 L12,4 Z" />
+    <path android:fillColor="#ffe50914" android:pathData="M19,4 L29,44 L36,44 L26,4 Z" />
+    <path android:fillColor="#ffe50914" android:pathData="M29,4 L36,4 L36,44 L29,44 Z" />
 </vector>

@@ -183,26 +183,12 @@ fun SearchScreen(
     ) {
       items(typeFilterTabs) { (label, typeKey) ->
         val isSelected = uiState.selectedSearchType == typeKey
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (isSelected) CinemaWhite else Color(0x1AFFFFFF))
-            .border(
-              width = 1.dp,
-              color = if (isSelected) CinemaWhite else Color(0x26FFFFFF),
-              shape = RoundedCornerShape(18.dp)
-            )
-            .clickable { onTypeFilterSelect(typeKey) }
-            .padding(horizontal = 14.dp, vertical = 6.dp)
-            .testTag("type_filter_$typeKey")
-        ) {
-          Text(
-            text = label,
-            color = if (isSelected) Color(0xFF0D1017) else TextMuted,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-          )
-        }
+        com.example.ui.theme.ModernFilterChip(
+          selected = isSelected,
+          onClick = { onTypeFilterSelect(typeKey) },
+          label = label,
+          modifier = Modifier.testTag("type_filter_$typeKey")
+        )
       }
     }
 
@@ -251,9 +237,7 @@ fun SearchScreen(
           listOf("Spider-Man", "Anime", "Pushpa 2", "Stranger Things", "Extraction 2", "Demon Slayer", "Wednesday", "Toxic").forEach { keyword ->
             Box(
               modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF161922))
-                .border(0.8.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
+                .neumorphicDepth(shape = RoundedCornerShape(14.dp), elevation = 2.dp, baseColor = Color(0xFF161A26))
                 .clickable { onQueryChange(keyword) }
                 .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {

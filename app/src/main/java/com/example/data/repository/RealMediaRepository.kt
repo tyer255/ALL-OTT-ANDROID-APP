@@ -24,6 +24,7 @@ import com.example.data.model.TrailerInfo
 import com.example.data.util.MediaEnrichmentRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,6 +43,10 @@ class RealMediaRepository(
 
   // In-memory cache for fast, instant lookups across navigation
   private val memoryCache = ConcurrentHashMap<String, MediaItem>()
+
+  // High-performance search result cache & in-flight request deduplication
+  private val searchCache = ConcurrentHashMap<String, List<MediaItem>>()
+  private val inFlightSearchJobs = ConcurrentHashMap<String, kotlinx.coroutines.Deferred<List<MediaItem>>>()
 
   // Reactive StateFlows for UI observing
   private val heroFlow = MutableStateFlow<List<MediaItem>>(emptyList())
@@ -374,25 +379,73 @@ class RealMediaRepository(
     }
   }
 
+  override fun getSearchFromCache(query: String, type: String?): List<MediaItem>? {
+    val cleanQuery = query.trim()
+    if (cleanQuery.isBlank()) return null
+    val cacheKey = "q:${cleanQuery.lowercase()}_t:${type ?: "all"}"
+    return searchCache[cacheKey]
+  }
+
+  override fun clearSearchCache() {
+    searchCache.clear()
+    inFlightSearchJobs.clear()
+  }
+
   override suspend fun searchReal(query: String, type: String?): List<MediaItem> {
-    if (query.isBlank()) return emptyList()
-    return try {
-      val encodedQuery = URLEncoder.encode(query.trim(), "UTF-8")
-      val response = apiService.search(query = encodedQuery, limit = 30, type = type)
-      if (response.success && response.data != null) {
-        response.data.map { dto ->
-          val item = dto.toMediaItem()
-          memoryCache[item.id] = item
-          item
+    val cleanQuery = query.trim()
+    if (cleanQuery.isBlank()) return emptyList()
+
+    val cacheKey = "q:${cleanQuery.lowercase()}_t:${type ?: "all"}"
+
+    // 1. Instant Cache Hit Check (< 2ms)
+    searchCache[cacheKey]?.let { cachedResults ->
+      return cachedResults
+    }
+
+    // 2. In-Flight Request Deduplication
+    val existingJob = inFlightSearchJobs[cacheKey]
+    if (existingJob != null && existingJob.isActive) {
+      return existingJob.await()
+    }
+
+    // 3. Fast Local Catalog Fallback Match
+    val localMatches = searchCatalog(cleanQuery, null, null)
+
+    val deferred = CoroutineScope(Dispatchers.IO).async {
+      try {
+        val encodedQuery = URLEncoder.encode(cleanQuery, "UTF-8")
+        val response = apiService.search(query = encodedQuery, limit = 30, type = type)
+        if (response.success && response.data != null) {
+          val items = response.data.map { dto ->
+            val item = dto.toMediaItem()
+            memoryCache[item.id] = item
+            item
+          }
+          val finalItems = items.ifEmpty { localMatches }
+          if (finalItems.isNotEmpty()) {
+            searchCache[cacheKey] = finalItems
+          }
+          finalItems
+        } else {
+          localMatches
         }
-      } else {
-        emptyList()
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e(tag, "Error searching for '$cleanQuery'", e)
+        localMatches
+      } finally {
+        inFlightSearchJobs.remove(cacheKey)
       }
+    }
+
+    inFlightSearchJobs[cacheKey] = deferred
+
+    return try {
+      deferred.await()
     } catch (e: kotlinx.coroutines.CancellationException) {
+      deferred.cancel()
       throw e
-    } catch (e: Exception) {
-      Log.e(tag, "Error searching for '$query'", e)
-      emptyList()
     }
   }
 
@@ -421,16 +474,27 @@ class RealMediaRepository(
       }
 
       val rawServers = if (response.success && response.data != null) {
+        val vidstuckItem = ServerItem(
+          id = "srv_1",
+          name = "Server 1 (VidStuck Stream)",
+          type = "embed",
+          quality = "1080p FHD",
+          language = "Multi-Audio (Hindi/Eng)",
+          url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e),
+          securePlayerUrl = null,
+          available = true,
+          priority = 1
+        )
         val tgvidItem = ServerItem(
           id = "srv_tgvid",
-          name = "Server 1 (TGVid Stream)",
+          name = "Server 2 (TGVid Stream)",
           type = "embed",
           quality = "1080p FHD",
           language = "Multi-Audio (Hindi/Eng)",
           url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e),
           securePlayerUrl = null,
           available = true,
-          priority = 1
+          priority = 2
         )
         val apiItems = response.data.servers.map { srv ->
           val directUrl = MediaEnrichmentRegistry.constructDirectServerUrl(srv.id, cleanId, isTv, s, e)
@@ -448,14 +512,14 @@ class RealMediaRepository(
             priority = srv.priority
           )
         }
-        listOf(tgvidItem) + apiItems
+        listOf(vidstuckItem, tgvidItem) + apiItems
       } else {
         emptyList()
       }
 
       val fallbackDefaults = listOf(
-        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
-        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
+        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
+        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
         ServerItem(id = "srv_proxy", name = "Ultra Proxy Fast", type = "embed", quality = "1080p FHD", language = "Cloudflare Worker Proxy", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_2", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3),
         ServerItem(id = "srv_vidsrc", name = "VidSrc Pro Multi", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_3", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 4),
         ServerItem(id = "srv_vidsrcicu", name = "VidSrc SU Global", type = "embed", quality = "1080p HD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_4", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 5),
@@ -470,10 +534,10 @@ class RealMediaRepository(
     } catch (err: Exception) {
       Log.e(tag, "Error getting servers for $cleanId ($type)", err)
       val fallbackDefaults = listOf(
-        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
-        ServerItem(id = "srv_vidsrc", name = "VidSrc Pro Multi", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_3", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
-        ServerItem(id = "srv_videasy", name = "Videasy HD", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_6", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3),
-        ServerItem(id = "srv_2embed", name = "2Embed Multi", type = "embed", quality = "1080p HD", language = "Multi-Subtitles", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_7", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 4)
+        ServerItem(id = "srv_vidstuck", name = "Vidstuck Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_1", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 1),
+        ServerItem(id = "srv_tgvid", name = "TGVid Stream", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_tgvid", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 2),
+        ServerItem(id = "srv_vidsrc", name = "VidSrc Pro Multi", type = "embed", quality = "1080p FHD", language = "Multi-Audio (Hindi/Eng)", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_3", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 3),
+        ServerItem(id = "srv_videasy", name = "Videasy HD", type = "embed", quality = "1080p FHD", language = "Multi-Language", url = MediaEnrichmentRegistry.constructDirectServerUrl("srv_6", cleanId, isTv, s, e), securePlayerUrl = null, available = true, priority = 4)
       )
       deduplicateAndRenumberServers(emptyList(), fallbackDefaults)
     }
@@ -583,13 +647,30 @@ class RealMediaRepository(
 
     val fallbackUrl = MediaEnrichmentRegistry.constructDirectServerUrl(serverId, cleanId, isTv, s, e)
 
+    // If serverId is srv_1 or srv_vidstuck, serve genuine VidStuck Stream embed URL directly!
+    if (serverId == "srv_1" || serverId == "srv_vidstuck") {
+      return PlaybackResolved(
+        contentId = cleanId,
+        type = apiType,
+        serverId = serverId,
+        serverName = "Server 1 (VidStuck Stream)",
+        streamUrl = fallbackUrl,
+        securePlayerUrl = fallbackUrl,
+        quality = "1080p FHD",
+        language = "Multi-Audio (Hindi/Eng)",
+        season = if (isTv) s else null,
+        episode = if (isTv) e else null,
+        available = true
+      )
+    }
+
     // If serverId is srv_tgvid, serve genuine TGVid Stream embed URL directly!
     if (serverId == "srv_tgvid") {
       return PlaybackResolved(
         contentId = cleanId,
         type = apiType,
         serverId = "srv_tgvid",
-        serverName = "Server 1 (TGVid Stream)",
+        serverName = "Server 2 (TGVid Stream)",
         streamUrl = fallbackUrl,
         securePlayerUrl = fallbackUrl,
         quality = "1080p FHD",
@@ -673,8 +754,8 @@ class RealMediaRepository(
     val canonical = getCanonicalProviderKey(serverId, clean, null)
     val provider = cleanProviderDisplayName(canonical, clean)
     val number = when (serverId.lowercase().trim()) {
-      "srv_tgvid" -> 1
-      "srv_1" -> 2
+      "srv_1", "srv_vidstuck" -> 1
+      "srv_tgvid" -> 2
       "srv_2", "srv_proxy" -> 3
       "srv_3", "srv_vidsrc" -> 4
       "srv_4", "srv_vidsrcicu" -> 5
@@ -1034,5 +1115,23 @@ class RealMediaRepository(
       airedDate = airDate ?: airedDate ?: "2024-01-15"
     )
   }
+
+  override fun getStreamOnWifiOnly(): Boolean = prefs?.getBoolean("pref_wifi_only", true) ?: true
+  override fun setStreamOnWifiOnly(enabled: Boolean) { prefs?.edit()?.putBoolean("pref_wifi_only", enabled)?.apply() }
+
+  override fun getEnableDolbyAudio(): Boolean = prefs?.getBoolean("pref_dolby_audio", true) ?: true
+  override fun setEnableDolbyAudio(enabled: Boolean) { prefs?.edit()?.putBoolean("pref_dolby_audio", enabled)?.apply() }
+
+  override fun getDownloadQualityHigh(): Boolean = prefs?.getBoolean("pref_download_high", true) ?: true
+  override fun setDownloadQualityHigh(enabled: Boolean) { prefs?.edit()?.putBoolean("pref_download_high", enabled)?.apply() }
+
+  override fun getStreamingBitrate(): Float = prefs?.getFloat("pref_streaming_bitrate", 8.5f) ?: 8.5f
+  override fun setStreamingBitrate(bitrate: Float) { prefs?.edit()?.putFloat("pref_streaming_bitrate", bitrate)?.apply() }
+
+  override fun getSpatialAudioDepth(): Float = prefs?.getFloat("pref_spatial_depth", 0.70f) ?: 0.70f
+  override fun setSpatialAudioDepth(depth: Float) { prefs?.edit()?.putFloat("pref_spatial_depth", depth)?.apply() }
+
+  override fun getDownloadStorageQuota(): Float = prefs?.getFloat("pref_storage_quota", 20f) ?: 20f
+  override fun setDownloadStorageQuota(quota: Float) { prefs?.edit()?.putFloat("pref_storage_quota", quota)?.apply() }
 }
 

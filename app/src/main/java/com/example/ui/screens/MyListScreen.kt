@@ -117,25 +117,13 @@ fun MyListScreen(
     ) {
       items(tabs) { tab ->
         val isSelected = tab == selectedTab
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) AmberGoldPrimary else DarkSurfaceVariant)
-            .border(
-              1.dp,
-              if (isSelected) AmberGoldPrimary else DividerColor,
-              RoundedCornerShape(20.dp)
-            )
-            .clickable { selectedTab = tab }
-            .padding(horizontal = 16.dp, vertical = 7.dp)
-        ) {
-          Text(
-            text = tab,
-            color = if (isSelected) DarkBackground else WhiteTextPrimary,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-          )
-        }
+        com.example.ui.theme.ModernFilterChip(
+          selected = isSelected,
+          onClick = { selectedTab = tab },
+          label = tab,
+          activeColor = AmberGoldPrimary,
+          activeTextColor = DarkBackground
+        )
       }
     }
 

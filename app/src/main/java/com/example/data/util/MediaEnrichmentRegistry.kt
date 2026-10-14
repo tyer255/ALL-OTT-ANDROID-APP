@@ -404,8 +404,8 @@ object MediaEnrichmentRegistry {
         else "https://www.2embed.cc/embed/$cleanId"
       }
       else -> {
-        if (isTv) "https://tgvid.lovable.app/embed/tv/$cleanId/$s/$e"
-        else "https://tgvid.lovable.app/embed/movie/$cleanId"
+        if (isTv) "https://vidstuck.xyz/embed/tv/$cleanId/$s/$e"
+        else "https://vidstuck.xyz/embed/movie/$cleanId"
       }
     }
   }

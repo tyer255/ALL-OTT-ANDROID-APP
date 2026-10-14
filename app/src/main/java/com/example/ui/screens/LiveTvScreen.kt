@@ -212,25 +212,11 @@ fun LiveTvScreen(
     ) {
       items(categories) { cat ->
         val isSelected = selectedCategory == cat
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (isSelected) CinemaWhite else Color(0x1AFFFFFF))
-            .border(
-              width = 1.dp,
-              color = if (isSelected) CinemaWhite else Color(0x26FFFFFF),
-              shape = RoundedCornerShape(18.dp)
-            )
-            .clickable { selectedCategory = cat }
-            .padding(horizontal = 14.dp, vertical = 6.dp)
-        ) {
-          Text(
-            text = cat,
-            color = if (isSelected) Color(0xFF0D1017) else TextMuted,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
-          )
-        }
+        com.example.ui.theme.ModernFilterChip(
+          selected = isSelected,
+          onClick = { selectedCategory = cat },
+          label = cat
+        )
       }
     }
 

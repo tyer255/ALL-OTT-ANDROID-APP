@@ -265,25 +265,11 @@ fun HomeScreen(
           ) {
             listOf("All", "TV Shows", "Movies").forEach { tab ->
               val isSelected = selectedFilter == tab
-              Box(
-                modifier = Modifier
-                  .clip(RoundedCornerShape(16.dp))
-                  .background(if (isSelected) CinemaWhite else Color(0x1AFFFFFF))
-                  .border(
-                    width = 1.dp,
-                    color = if (isSelected) CinemaWhite else Color(0x26FFFFFF),
-                    shape = RoundedCornerShape(16.dp)
-                  )
-                  .clickable { selectedFilter = tab }
-                  .padding(horizontal = 14.dp, vertical = 6.dp)
-              ) {
-                Text(
-                  text = tab,
-                  color = if (isSelected) Color(0xFF0B0D13) else CinemaWhite,
-                  fontSize = 12.sp,
-                  fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
-                )
-              }
+              com.example.ui.theme.ModernFilterChip(
+                selected = isSelected,
+                onClick = { selectedFilter = tab },
+                label = tab
+              )
             }
           }
         }

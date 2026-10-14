@@ -195,33 +195,36 @@ fun QuickPreviewBottomSheet(
           .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
       ) {
-        Button(
-          onClick = {
-            onDismiss()
-            onPlayClick(mediaItem)
-          },
-          colors = ButtonDefaults.buttonColors(
-            containerColor = CinemaWhite,
-            contentColor = NetflixBlack
-          ),
-          shape = RoundedCornerShape(10.dp),
+        Box(
           modifier = Modifier
             .weight(1f)
             .height(44.dp)
-            .testTag("preview_play_button")
+            .neumorphicDepth(shape = RoundedCornerShape(10.dp), elevation = 3.dp, baseColor = CinemaWhite)
+            .clickable {
+              onDismiss()
+              onPlayClick(mediaItem)
+            }
+            .testTag("preview_play_button"),
+          contentAlignment = Alignment.Center
         ) {
-          Icon(
-            imageVector = Icons.Default.PlayArrow,
-            contentDescription = null,
-            tint = NetflixBlack,
-            modifier = Modifier.size(20.dp)
-          )
-          Spacer(modifier = Modifier.width(6.dp))
-          Text(
-            text = "Play Now",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-          )
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+          ) {
+            Icon(
+              imageVector = Icons.Default.PlayArrow,
+              contentDescription = null,
+              tint = NetflixBlack,
+              modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "Play Now",
+              color = NetflixBlack,
+              fontSize = 14.sp,
+              fontWeight = FontWeight.Bold
+            )
+          }
         }
 
         Box(
@@ -273,10 +276,8 @@ fun QuickPreviewBottomSheet(
         ) {
           Box(
             modifier = Modifier
-              .size(38.dp)
-              .clip(CircleShape)
-              .background(if (isInMyList) Color(0x33E50914) else Color(0x1AFFFFFF))
-              .border(0.8.dp, if (isInMyList) NetflixRed else Color(0x26FFFFFF), CircleShape),
+              .size(40.dp)
+              .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = if (isInMyList) Color(0x33E50914) else Color(0xFF161A26)),
             contentAlignment = Alignment.Center
           ) {
             Icon(
@@ -300,10 +301,8 @@ fun QuickPreviewBottomSheet(
         ) {
           Box(
             modifier = Modifier
-              .size(38.dp)
-              .clip(CircleShape)
-              .background(if (isLiked) Color(0x33E50914) else Color(0x1AFFFFFF))
-              .border(0.8.dp, if (isLiked) NetflixRed else Color(0x26FFFFFF), CircleShape),
+              .size(40.dp)
+              .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = if (isLiked) Color(0x33E50914) else Color(0xFF161A26)),
             contentAlignment = Alignment.Center
           ) {
             Icon(
@@ -327,10 +326,8 @@ fun QuickPreviewBottomSheet(
         ) {
           Box(
             modifier = Modifier
-              .size(38.dp)
-              .clip(CircleShape)
-              .background(Color(0x1AFFFFFF))
-              .border(0.8.dp, Color(0x26FFFFFF), CircleShape),
+              .size(40.dp)
+              .neumorphicDepth(shape = CircleShape, elevation = 2.dp, baseColor = Color(0xFF161A26)),
             contentAlignment = Alignment.Center
           ) {
             Icon(

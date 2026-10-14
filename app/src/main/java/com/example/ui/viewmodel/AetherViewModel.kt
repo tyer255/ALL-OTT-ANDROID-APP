@@ -55,6 +55,7 @@ data class PlayerPlaybackState(
   val episodeTitle: String? = null,
   val streamUrl: String? = null,
   val securePlayerUrl: String? = null,
+  val serverId: String? = null,
   val serverName: String? = null,
   val serverQuality: String? = null
 )
@@ -98,7 +99,13 @@ data class AetherUiState(
   val showDownloadsSheet: Boolean = false,
   val availableDownloads: DownloadsInfo? = null,
   val isLoadingDownloads: Boolean = false,
-  val downloadTargetMedia: MediaItem? = null
+  val downloadTargetMedia: MediaItem? = null,
+  val streamOnWifiOnly: Boolean = true,
+  val enableDolbyAudio: Boolean = true,
+  val downloadQualityHigh: Boolean = true,
+  val streamingBitrate: Float = 8.5f,
+  val spatialAudioDepth: Float = 0.70f,
+  val downloadStorageQuota: Float = 20f
 )
 
 class AetherViewModel(
@@ -203,7 +210,13 @@ class AetherViewModel(
         trendingKeywords = repository.getTrendingKeywords(),
         recentSearches = repository.getRecentSearches(),
         availableGenres = repository.getAllGenres(),
-        watchHistory = repository.getWatchHistory()
+        watchHistory = repository.getWatchHistory(),
+        streamOnWifiOnly = repository.getStreamOnWifiOnly(),
+        enableDolbyAudio = repository.getEnableDolbyAudio(),
+        downloadQualityHigh = repository.getDownloadQualityHigh(),
+        streamingBitrate = repository.getStreamingBitrate(),
+        spatialAudioDepth = repository.getSpatialAudioDepth(),
+        downloadStorageQuota = repository.getDownloadStorageQuota()
       )
     }
 
@@ -216,8 +229,44 @@ class AetherViewModel(
     }
   }
 
+  fun setStreamOnWifiOnly(enabled: Boolean) {
+    _uiState.update { it.copy(streamOnWifiOnly = enabled) }
+    repository.setStreamOnWifiOnly(enabled)
+    showToast(if (enabled) "Wi-Fi Only Streaming Active" else "Cellular Streaming Allowed")
+  }
+
+  fun setEnableDolbyAudio(enabled: Boolean) {
+    _uiState.update { it.copy(enableDolbyAudio = enabled) }
+    repository.setEnableDolbyAudio(enabled)
+    showToast(if (enabled) "Spatial Audio Active" else "Stereo Audio Active")
+  }
+
+  fun setDownloadQualityHigh(enabled: Boolean) {
+    _uiState.update { it.copy(downloadQualityHigh = enabled) }
+    repository.setDownloadQualityHigh(enabled)
+    showToast(if (enabled) "Ultra HD Downloads Active" else "Standard Downloads Active")
+  }
+
+  fun setStreamingBitrate(bitrate: Float) {
+    _uiState.update { it.copy(streamingBitrate = bitrate) }
+    repository.setStreamingBitrate(bitrate)
+  }
+
+  fun setSpatialAudioDepth(depth: Float) {
+    _uiState.update { it.copy(spatialAudioDepth = depth) }
+    repository.setSpatialAudioDepth(depth)
+  }
+
+  fun setDownloadStorageQuota(quota: Float) {
+    _uiState.update { it.copy(downloadStorageQuota = quota) }
+    repository.setDownloadStorageQuota(quota)
+  }
+
+  private var heroRotationJob: kotlinx.coroutines.Job? = null
+
   private fun startHeroAutoRotation() {
-    viewModelScope.launch {
+    heroRotationJob?.cancel()
+    heroRotationJob = viewModelScope.launch {
       while (true) {
         delay(6500)
         val currentItems = _uiState.value.featuredHeroItems
@@ -244,6 +293,8 @@ class AetherViewModel(
   fun setHeroIndex(index: Int) {
     if (index in 0 until _uiState.value.featuredHeroItems.size) {
       _uiState.update { it.copy(currentHeroIndex = index) }
+      // Reset rotation timer cleanly so user is not interrupted immediately
+      startHeroAutoRotation()
     }
   }
 
@@ -469,6 +520,7 @@ class AetherViewModel(
             episodeTitle = episodeTitle,
             streamUrl = targetStreamUrl,
             securePlayerUrl = resolved?.securePlayerUrl ?: server.securePlayerUrl,
+            serverId = resolved?.serverId ?: server.id,
             serverName = resolved?.serverName ?: server.name,
             serverQuality = resolved?.quality ?: server.quality
           )
@@ -514,8 +566,20 @@ class AetherViewModel(
       return
     }
 
+    // Instant Cache Fast-Path (< 5ms response time)
+    val cached = repository.getSearchFromCache(query, apiType)
+    if (cached != null) {
+      _uiState.update {
+        it.copy(
+          searchResults = cached,
+          isSearching = false
+        )
+      }
+      return
+    }
+
     searchDebounceJob = viewModelScope.launch {
-      delay(300) // 300ms debounce
+      delay(200) // 200ms responsive debounce
       try {
         _uiState.update { it.copy(isSearching = true) }
         val results = repository.searchReal(query, apiType)

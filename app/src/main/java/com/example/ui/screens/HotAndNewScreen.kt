@@ -91,20 +91,11 @@ fun HotAndNewScreen(
     ) {
       items(tabs) { tab ->
         val isSelected = tab == selectedTab
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) CinemaWhite else Color(0xFF262626))
-            .clickable { selectedTab = tab }
-            .padding(horizontal = 14.dp, vertical = 7.dp)
-        ) {
-          Text(
-            text = tab,
-            color = if (isSelected) NetflixBlack else CinemaWhite,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-          )
-        }
+        com.example.ui.theme.ModernFilterChip(
+          selected = isSelected,
+          onClick = { selectedTab = tab },
+          label = tab
+        )
       }
     }
 

@@ -123,7 +123,13 @@ fun AetherStreamApp(
           onPlayClick = { viewModel.openPlayer(it.id) },
           onOpenMyList = { viewModel.navigateTo(Screen.MyList) },
           onBackClick = { viewModel.navigateBack() },
-          onRemoveFromContinueWatching = { viewModel.removeFromContinueWatching(it) }
+          onRemoveFromContinueWatching = { viewModel.removeFromContinueWatching(it) },
+          onStreamOnWifiOnlyChange = { viewModel.setStreamOnWifiOnly(it) },
+          onEnableDolbyAudioChange = { viewModel.setEnableDolbyAudio(it) },
+          onDownloadQualityHighChange = { viewModel.setDownloadQualityHigh(it) },
+          onStreamingBitrateChange = { viewModel.setStreamingBitrate(it) },
+          onSpatialAudioDepthChange = { viewModel.setSpatialAudioDepth(it) },
+          onDownloadStorageQuotaChange = { viewModel.setDownloadStorageQuota(it) }
         )
       }
 
@@ -163,6 +169,7 @@ fun AetherStreamApp(
           mediaTitle = media?.title ?: "Stream Player",
           subtitle = uiState.playbackState.episodeTitle ?: media?.duration,
           streamUrl = uiState.playbackState.streamUrl,
+          serverId = uiState.playbackState.serverId,
           serverName = uiState.playbackState.serverName,
           onBackClick = { viewModel.navigateBack() },
           onRetryOrSwitchServer = if (media != null) { { viewModel.preparePlayback(media) } } else null
